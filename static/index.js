@@ -14,22 +14,22 @@ function renderPlayers() {
   if (filtered.length === 0) {
     container.innerHTML = `<div class="empty-state">${
       allPlayers.length === 0
-        ? "아직 등록된 선수가 없어요. '선수 추가' 버튼을 눌러 시작하세요."
-        : "검색 결과가 없어요."
+        ? "No players yet. Click 'Add Player' to get started."
+        : "No results found."
     }</div>`;
     return;
   }
 
   const groups = {};
   for (const p of filtered) {
-    const key = p.category && p.category.trim() ? p.category.trim() : "미분류";
+    const key = p.category && p.category.trim() ? p.category.trim() : "Uncategorized";
     if (!groups[key]) groups[key] = [];
     groups[key].push(p);
   }
 
   const sortedKeys = Object.keys(groups).sort((a, b) => {
-    if (a === "미분류") return 1;
-    if (b === "미분류") return -1;
+    if (a === "Uncategorized") return 1;
+    if (b === "Uncategorized") return -1;
     return a.localeCompare(b);
   });
 
@@ -40,7 +40,7 @@ function renderPlayers() {
           (p) => `
         <a class="player-card" href="/players/${p.id}">
           <div class="name">${escapeHtml(p.name)}</div>
-          <div class="meta">${p.notes ? escapeHtml(truncate(p.notes, 40)) : "훈련 기록 보기 &rarr;"}</div>
+          <div class="meta">${p.notes ? escapeHtml(truncate(p.notes, 40)) : "View training log &rarr;"}</div>
         </a>`
         )
         .join("");
@@ -82,7 +82,7 @@ modal.addEventListener("click", (e) => {
 document.getElementById("savePlayerBtn").addEventListener("click", async () => {
   const name = document.getElementById("playerNameInput").value.trim();
   if (!name) {
-    alert("이름을 입력해주세요.");
+    alert("Please enter a name.");
     return;
   }
   const category = document.getElementById("playerCategoryInput").value.trim();

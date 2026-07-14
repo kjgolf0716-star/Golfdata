@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -12,8 +12,8 @@
 </header>
 <main>
   <div class="toolbar">
-    <input id="searchInput" class="search-input" type="text" placeholder="선수 이름 검색..." />
-    <button class="btn-primary" id="addPlayerBtn">+ 선수 추가</button>
+    <input id="searchInput" class="search-input" type="text" placeholder="Search player name..." />
+    <button class="btn-primary" id="addPlayerBtn">+ Add Player</button>
   </div>
 
   <div id="playerList"></div>
@@ -21,16 +21,16 @@
 
 <div id="playerModal" class="modal-backdrop hidden">
   <div class="modal">
-    <h3 id="playerModalTitle">선수 추가</h3>
-    <label>이름</label>
-    <input id="playerNameInput" type="text" placeholder="예: 김주니어" />
-    <label>카테고리 (선택)</label>
-    <input id="playerCategoryInput" type="text" placeholder="예: U12, 초급반 등" />
-    <label>메모 (선택)</label>
-    <textarea id="playerNotesInput" placeholder="특이사항, 목표 등"></textarea>
+    <h3 id="playerModalTitle">Add Player</h3>
+    <label>Name</label>
+    <input id="playerNameInput" type="text" placeholder="e.g. Jane Smith" />
+    <label>Category (optional)</label>
+    <input id="playerCategoryInput" type="text" placeholder="e.g. U12, Beginner" />
+    <label>Notes (optional)</label>
+    <textarea id="playerNotesInput" placeholder="Notes, goals, etc."></textarea>
     <div class="modal-actions">
-      <button class="btn-secondary" id="cancelPlayerBtn">취소</button>
-      <button class="btn-primary" id="savePlayerBtn">저장</button>
+      <button class="btn-secondary" id="cancelPlayerBtn">Cancel</button>
+      <button class="btn-primary" id="savePlayerBtn">Save</button>
     </div>
   </div>
 </div>

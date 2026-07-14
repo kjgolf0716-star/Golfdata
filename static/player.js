@@ -25,7 +25,7 @@ async function loadAll() {
     fetch(`/api/players/${playerId}/entries`),
   ]);
   if (!pRes.ok) {
-    document.getElementById("playerName").textContent = "선수를 찾을 수 없어요";
+    document.getElementById("playerName").textContent = "Player not found";
     return;
   }
   player = await pRes.json();
@@ -86,7 +86,7 @@ function renderTable() {
         <td class="date-cell">${formatDate(date)}</td>
         ${cells}
         <td class="row-actions">
-          <button class="btn-icon btn-danger" data-delete-date="${date}" title="이 날짜 기록 삭제">삭제</button>
+          <button class="btn-icon btn-danger" data-delete-date="${date}" title="Delete this date's record">Delete</button>
         </td>
       </tr>`;
     })
@@ -132,7 +132,7 @@ function renderAverages() {
     })
     .join("");
 
-  tfoot.innerHTML = `<tr class="avg-row"><td class="date-cell">평균</td>${cells}<td></td></tr>`;
+  tfoot.innerHTML = `<tr class="avg-row"><td class="date-cell">Average</td>${cells}<td></td></tr>`;
 }
 
 function formatAvg(n) {
@@ -173,15 +173,15 @@ async function onCellChange(e) {
 
 async function onDeleteDate(e) {
   const date = e.target.dataset.deleteDate;
-  if (!confirm(`${date} 기록을 삭제할까요?`)) return;
+  if (!confirm(`Delete the record for ${date}?`)) return;
   await fetch(`/api/players/${playerId}/dates/${date}`, { method: "DELETE" });
   entries = entries.filter((x) => x.entry_date !== date);
   manualDates.delete(date);
   renderTable();
-  flashSaved("삭제됨");
+  flashSaved("Deleted");
 }
 
-function flashSaved(msg = "저장됨") {
+function flashSaved(msg = "Saved") {
   const flash = document.getElementById("saveFlash");
   flash.textContent = msg;
   flash.classList.add("show");
@@ -226,7 +226,7 @@ editModal.addEventListener("click", (e) => { if (e.target === editModal) editMod
 
 document.getElementById("saveEditPlayerBtn").addEventListener("click", async () => {
   const name = document.getElementById("editNameInput").value.trim();
-  if (!name) { alert("이름을 입력해주세요."); return; }
+  if (!name) { alert("Please enter a name."); return; }
   const category = document.getElementById("editCategoryInput").value.trim();
   const notes = document.getElementById("editNotesInput").value.trim();
   await fetch(`/api/players/${playerId}`, {
@@ -241,7 +241,7 @@ document.getElementById("saveEditPlayerBtn").addEventListener("click", async () 
 });
 
 document.getElementById("deletePlayerBtn").addEventListener("click", async () => {
-  if (!confirm(`${player.name} 선수를 삭제할까요? 모든 기록이 함께 삭제됩니다.`)) return;
+  if (!confirm(`Delete player ${player.name}? All of their records will be deleted too.`)) return;
   await fetch(`/api/players/${playerId}`, { method: "DELETE" });
   window.location.href = "/";
 });
@@ -265,10 +265,10 @@ function renderDrillManager() {
       (d) => `
     <div class="drill-row" data-id="${d.id}">
       <div class="fields">
-        <input type="text" class="drill-name-input" value="${escapeHtml(d.name)}" placeholder="드릴 이름" />
-        <textarea class="drill-desc-input" placeholder="설명 (측정 방법, 점수 규칙 등)">${escapeHtml(d.description || "")}</textarea>
+        <input type="text" class="drill-name-input" value="${escapeHtml(d.name)}" placeholder="Drill name" />
+        <textarea class="drill-desc-input" placeholder="Description (measurement method, scoring rules, etc.)">${escapeHtml(d.description || "")}</textarea>
       </div>
-      <button class="btn-icon btn-danger" data-drill-delete="${d.id}">삭제</button>
+      <button class="btn-icon btn-danger" data-drill-delete="${d.id}">Delete</button>
     </div>`
     )
     .join("");
@@ -298,7 +298,7 @@ function renderDrillManager() {
     btn.addEventListener("click", async () => {
       const id = Number(btn.dataset.drillDelete);
       const d = drills.find((x) => x.id === id);
-      if (!confirm(`'${d ? d.name : ""}' 드릴을 삭제할까요? 관련 기록도 함께 삭제됩니다.`)) return;
+      if (!confirm(`Delete the drill '${d ? d.name : ""}'? Its records will be deleted too.`)) return;
       await fetch(`/api/drills/${id}`, { method: "DELETE" });
       drills = drills.filter((x) => x.id !== id);
       entries = entries.filter((x) => x.drill_id !== id);
@@ -312,10 +312,10 @@ document.getElementById("addDrillBtn").addEventListener("click", async () => {
   const res = await fetch("/api/drills", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: "새 드릴", description: "" }),
+    body: JSON.stringify({ name: "New Drill", description: "" }),
   });
   const data = await res.json();
-  drills.push({ id: data.id, name: "새 드릴", description: "", sort_order: drills.length });
+  drills.push({ id: data.id, name: "New Drill", description: "", sort_order: drills.length });
   renderDrillManager();
   renderTable();
 });

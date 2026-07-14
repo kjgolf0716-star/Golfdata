@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>선수 기록 · Junior Golf Tracker</title>
+<title>Player Log · Junior Golf Tracker</title>
 <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
@@ -11,16 +11,16 @@
   <a href="/" class="brand"><span class="dot"></span> Junior Golf Tracker</a>
 </header>
 <main>
-  <a href="/" class="back-link">&larr; 선수 목록으로</a>
+  <a href="/" class="back-link">&larr; Back to players</a>
   <div class="player-header">
     <div>
       <h1 id="playerName">-</h1>
       <div class="sub" id="playerMeta"></div>
     </div>
     <div class="header-actions">
-      <button class="btn-secondary" id="manageDrillsBtn">드릴 관리</button>
-      <button class="btn-secondary" id="editPlayerBtn">선수 정보 수정</button>
-      <button class="btn-primary" id="addDateBtn">+ 날짜 추가</button>
+      <button class="btn-secondary" id="manageDrillsBtn">Manage Drills</button>
+      <button class="btn-secondary" id="editPlayerBtn">Edit Player</button>
+      <button class="btn-primary" id="addDateBtn">+ Add Date</button>
     </div>
   </div>
 
@@ -35,51 +35,51 @@
       <tfoot id="tableFoot"></tfoot>
     </table>
   </div>
-  <p id="emptyHint" class="empty-state hidden">아직 기록이 없어요. '날짜 추가' 버튼으로 첫 훈련 기록을 입력해보세요.</p>
+  <p id="emptyHint" class="empty-state hidden">No records yet. Use the 'Add Date' button to log the first training session.</p>
 </main>
 
 <div id="dateModal" class="modal-backdrop hidden">
   <div class="modal">
-    <h3>날짜 추가</h3>
-    <label>날짜</label>
+    <h3>Add Date</h3>
+    <label>Date</label>
     <input id="newDateInput" type="date" />
     <div class="modal-actions">
-      <button class="btn-secondary" id="cancelDateBtn">취소</button>
-      <button class="btn-primary" id="confirmDateBtn">추가</button>
+      <button class="btn-secondary" id="cancelDateBtn">Cancel</button>
+      <button class="btn-primary" id="confirmDateBtn">Add</button>
     </div>
   </div>
 </div>
 
 <div id="editPlayerModal" class="modal-backdrop hidden">
   <div class="modal">
-    <h3>선수 정보 수정</h3>
-    <label>이름</label>
+    <h3>Edit Player</h3>
+    <label>Name</label>
     <input id="editNameInput" type="text" />
-    <label>카테고리</label>
+    <label>Category</label>
     <input id="editCategoryInput" type="text" />
-    <label>메모</label>
+    <label>Notes</label>
     <textarea id="editNotesInput"></textarea>
     <div class="modal-actions">
-      <button class="btn-danger" id="deletePlayerBtn">선수 삭제</button>
-      <button class="btn-secondary" id="cancelEditPlayerBtn">취소</button>
-      <button class="btn-primary" id="saveEditPlayerBtn">저장</button>
+      <button class="btn-danger" id="deletePlayerBtn">Delete Player</button>
+      <button class="btn-secondary" id="cancelEditPlayerBtn">Cancel</button>
+      <button class="btn-primary" id="saveEditPlayerBtn">Save</button>
     </div>
   </div>
 </div>
 
 <div id="drillModal" class="modal-backdrop hidden">
   <div class="modal" style="max-width:520px;">
-    <h3>드릴 관리</h3>
-    <p style="font-size:12.5px;color:var(--muted);margin-top:-6px;">여기서 추가/수정한 드릴은 모든 선수의 기록표에 공통으로 적용돼요.</p>
+    <h3>Manage Drills</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin-top:-6px;">Drills added or edited here apply to every player's log in common.</p>
     <div class="drill-manager-list" id="drillManagerList"></div>
-    <button class="btn-secondary" id="addDrillBtn" style="margin-top:10px;width:100%;">+ 드릴 추가</button>
+    <button class="btn-secondary" id="addDrillBtn" style="margin-top:10px;width:100%;">+ Add Drill</button>
     <div class="modal-actions">
-      <button class="btn-primary" id="closeDrillModalBtn">닫기</button>
+      <button class="btn-primary" id="closeDrillModalBtn">Close</button>
     </div>
   </div>
 </div>
 
-<div class="save-flash" id="saveFlash">저장됨</div>
+<div class="save-flash" id="saveFlash">Saved</div>
 
 <script src="/static/player.js"></script>
 </body>
