@@ -4,6 +4,10 @@ let player = null;
 let drills = [];
 let entries = []; // {id, player_id, drill_id, entry_date, value}
 let manualDates = new Set(); // dates added via "add date" but with no entries yet
+let stats = null; // gamification stats, see gamify.py
+let customQuests = []; // [{id, name, icon, description, target, sort_order}]
+let questProgress = {}; // quest_id -> current
+let allClasses = []; // [{id, name, sort_order}]
 
 function entryMap() {
   // date -> { drillId: value }
@@ -19,10 +23,14 @@ function entryMap() {
 }
 
 async function loadAll() {
-  const [pRes, dRes, eRes] = await Promise.all([
+  const [pRes, dRes, eRes, sRes, qRes, qpRes, clsRes] = await Promise.all([
     fetch(`/api/players/${playerId}`),
     fetch(`/api/drills`),
     fetch(`/api/players/${playerId}/entries`),
+    fetch(`/api/players/${playerId}/stats`),
+    fetch(`/api/quests`),
+    fetch(`/api/players/${playerId}/quest-progress`),
+    fetch(`/api/classes`),
   ]);
   if (!pRes.ok) {
     document.getElementById("playerName").textContent = "Player not found";
@@ -31,8 +39,81 @@ async function loadAll() {
   player = await pRes.json();
   drills = await dRes.json();
   entries = await eRes.json();
+  stats = await sRes.json();
+  customQuests = await qRes.json();
+  allClasses = await clsRes.json();
+  questProgress = {};
+  for (const row of await qpRes.json()) questProgress[row.quest_id] = row.current;
   renderHeader();
   renderTable();
+  renderGamifyPanel();
+}
+
+async function refreshStats({ celebrate } = { celebrate: false }) {
+  const prevStats = stats;
+  const res = await fetch(`/api/players/${playerId}/stats`);
+  stats = await res.json();
+  renderGamifyPanel();
+  if (celebrate) celebrateStatsChange(prevStats, stats);
+}
+
+function renderGamifyPanel() {
+  const panel = document.getElementById("gamifyPanel");
+  if (!stats) {
+    panel.innerHTML = "";
+    return;
+  }
+  const allQuestsWithProgress = customQuests.map((q) => {
+    let scopeLabel = null;
+    if (q.class_id !== null) {
+      const cls = allClasses.find((c) => c.id === q.class_id);
+      scopeLabel = cls ? cls.name : null;
+    } else if (LEVELS[q.level_index]) {
+      scopeLabel = `${LEVELS[q.level_index][1]} ${LEVELS[q.level_index][0]}`;
+    }
+    return { ...q, current: questProgress[q.id] ?? 0, scope_label: scopeLabel };
+  });
+  const currentLevelQuests = allQuestsWithProgress.filter((q) => q.level_index === stats.level_index);
+
+  panel.innerHTML = `
+    <div class="gamify-top">
+      ${levelChipHtml(stats, "lg")}
+      ${stats.level_is_manual ? `<span class="manual-tag">\u{270F}\u{FE0F} set by coach</span>` : ""}
+      ${streakChipHtml(stats)}
+    </div>
+    ${xpBarHtml(stats)}
+    ${questProgressListHtml(currentLevelQuests)}
+  `;
+
+  panel.querySelectorAll(".quest-progress-input").forEach((input) => {
+    input.addEventListener("change", onQuestProgressChange);
+  });
+}
+
+async function onQuestProgressChange(e) {
+  const input = e.target;
+  const questId = Number(input.dataset.questId);
+  const quest = customQuests.find((q) => q.id === questId);
+  if (!quest) return;
+
+  const prevCurrent = questProgress[questId] ?? 0;
+  let value = Math.round(Number(input.value));
+  if (Number.isNaN(value)) value = 0;
+  value = Math.max(0, Math.min(value, quest.target));
+
+  const res = await fetch("/api/quest-progress", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ player_id: playerId, quest_id: questId, current: value }),
+  });
+  const data = await res.json();
+  questProgress[questId] = data.current;
+  renderGamifyPanel();
+  flashSaved();
+
+  if (data.current >= quest.target && prevCurrent < quest.target) {
+    celebrateBadge({ icon: quest.icon, name: quest.name });
+  }
 }
 
 function renderHeader() {
@@ -169,6 +250,7 @@ async function onCellChange(e) {
   manualDates.delete(date);
   renderAverages();
   flashSaved();
+  await refreshStats({ celebrate: value !== "" });
 }
 
 async function onDeleteDate(e) {
@@ -179,6 +261,7 @@ async function onDeleteDate(e) {
   manualDates.delete(date);
   renderTable();
   flashSaved("Deleted");
+  await refreshStats({ celebrate: false });
 }
 
 function flashSaved(msg = "Saved") {
@@ -219,6 +302,8 @@ document.getElementById("editPlayerBtn").addEventListener("click", () => {
   document.getElementById("editNameInput").value = player.name;
   document.getElementById("editCategoryInput").value = player.category || "";
   document.getElementById("editNotesInput").value = player.notes || "";
+  document.getElementById("editLevelSelect").innerHTML = levelSelectOptionsHtml(player.level_override);
+  document.getElementById("editClassSelect").innerHTML = classSelectOptionsHtml(allClasses, player.class_id);
   editModal.classList.remove("hidden");
 });
 document.getElementById("cancelEditPlayerBtn").addEventListener("click", () => editModal.classList.add("hidden"));
@@ -229,15 +314,20 @@ document.getElementById("saveEditPlayerBtn").addEventListener("click", async () 
   if (!name) { alert("Please enter a name."); return; }
   const category = document.getElementById("editCategoryInput").value.trim();
   const notes = document.getElementById("editNotesInput").value.trim();
+  const levelValue = document.getElementById("editLevelSelect").value;
+  const level_override = levelValue === "" ? null : Number(levelValue);
+  const classValue = document.getElementById("editClassSelect").value;
+  const class_id = classValue === "" ? null : Number(classValue);
   await fetch(`/api/players/${playerId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, category, notes }),
+    body: JSON.stringify({ name, category, notes, level_override, class_id }),
   });
-  player = { ...player, name, category, notes };
+  player = { ...player, name, category, notes, level_override, class_id };
   renderHeader();
   editModal.classList.add("hidden");
   flashSaved();
+  await refreshStats({ celebrate: true });
 });
 
 document.getElementById("deletePlayerBtn").addEventListener("click", async () => {

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Attendance · Junior Golf Tracker</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <a href="/" class="brand"><img src="/static/logo.png" alt="D3 Golf Center" class="brand-logo" /></a>
+  <nav class="topnav">
+    <a href="/" class="topnav-link">Players</a>
+    <a href="/attendance" class="topnav-link active">Attendance</a>
+    <a href="/quests" class="topnav-link">Quests</a>
+    <a href="/today" class="topnav-link">Today's Class</a>
+  </nav>
+</header>
+<main>
+  <h1 class="page-title">Attendance</h1>
+  <p class="page-subtitle">Monthly attendance history for a class. Check people in from the Today's Class tab.</p>
+
+  <div class="attendance-toolbar">
+    <label class="attendance-field">Class
+      <select id="attClassSelect"></select>
+    </label>
+    <label class="attendance-field">Month
+      <input type="month" id="attMonthInput" />
+    </label>
+    <span id="attCount" class="attendance-count"></span>
+  </div>
+
+  <div id="attendanceBody"></div>
+</main>
+
+<script src="/static/gamify.js"></script>
+<script src="/static/attendance.js"></script>
+</body>
+</html>

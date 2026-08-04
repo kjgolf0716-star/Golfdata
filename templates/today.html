@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Today's Class · Junior Golf Tracker</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <a href="/" class="brand"><img src="/static/logo.png" alt="D3 Golf Center" class="brand-logo" /></a>
+  <nav class="topnav">
+    <a href="/" class="topnav-link">Players</a>
+    <a href="/attendance" class="topnav-link">Attendance</a>
+    <a href="/quests" class="topnav-link">Quests</a>
+    <a href="/today" class="topnav-link active">Today's Class</a>
+  </nav>
+</header>
+<main>
+  <h1 class="page-title">Today's Class</h1>
+  <p class="page-subtitle">Pick whichever juniors are here today, choose the class and date, then save to record attendance.</p>
+
+  <div class="attendance-toolbar">
+    <label class="attendance-field">Class
+      <select id="todayClassSelect"></select>
+    </label>
+    <label class="attendance-field">Date
+      <input type="date" id="todayDateInput" />
+    </label>
+    <span id="todayCount" class="attendance-count"></span>
+    <label class="attendance-toggle">
+      <input type="checkbox" id="todayShowOnlyToggle" />
+      Show only selected
+    </label>
+  </div>
+
+  <div class="today-actions">
+    <button class="btn-secondary" id="todayClearBtn">Clear Selection</button>
+    <button class="btn-primary" id="todaySaveBtn">Save Attendance</button>
+    <span id="todaySavedFlash" class="today-saved-flash hidden">✓ Saved to Attendance</span>
+  </div>
+
+  <div id="todayBody"></div>
+</main>
+
+<script src="/static/gamify.js"></script>
+<script src="/static/today.js"></script>
+</body>
+</html>

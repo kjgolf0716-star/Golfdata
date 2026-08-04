@@ -45,6 +45,13 @@ class Conn:
     def close(self):
         self.raw.close()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
+
 
 def get_conn():
     return Conn(_raw_connect())
@@ -59,10 +66,28 @@ def init_db():
             name TEXT NOT NULL,
             category TEXT DEFAULT '',
             notes TEXT DEFAULT '',
+            level_override INTEGER,
+            class_id INTEGER,
             created_at TEXT DEFAULT (datetime('now'))
         )
         """
     )
+    player_cols = {row["name"] for row in conn.query("PRAGMA table_info(players)")}
+    if "level_override" not in player_cols:
+        conn.exec("ALTER TABLE players ADD COLUMN level_override INTEGER")
+    if "class_id" not in player_cols:
+        conn.exec("ALTER TABLE players ADD COLUMN class_id INTEGER")
+
+    conn.exec(
+        """
+        CREATE TABLE IF NOT EXISTS classes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            sort_order INTEGER DEFAULT 0
+        )
+        """
+    )
+
     conn.exec(
         """
         CREATE TABLE IF NOT EXISTS drills (
@@ -85,6 +110,76 @@ def init_db():
         )
         """
     )
+
+    conn.exec(
+        """
+        CREATE TABLE IF NOT EXISTS quests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            icon TEXT DEFAULT '🎯',
+            description TEXT DEFAULT '',
+            target INTEGER NOT NULL DEFAULT 1,
+            level_index INTEGER NOT NULL DEFAULT 0,
+            class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
+            quest_type TEXT NOT NULL DEFAULT 'main',
+            sort_order INTEGER DEFAULT 0
+        )
+        """
+    )
+    quest_cols = {row["name"] for row in conn.query("PRAGMA table_info(quests)")}
+    if "level_index" not in quest_cols:
+        conn.exec("ALTER TABLE quests ADD COLUMN level_index INTEGER NOT NULL DEFAULT 0")
+    if "class_id" not in quest_cols:
+        conn.exec("ALTER TABLE quests ADD COLUMN class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE")
+    if "quest_type" not in quest_cols:
+        conn.exec("ALTER TABLE quests ADD COLUMN quest_type TEXT NOT NULL DEFAULT 'main'")
+
+    conn.exec(
+        """
+        CREATE TABLE IF NOT EXISTS quest_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+            quest_id INTEGER NOT NULL REFERENCES quests(id) ON DELETE CASCADE,
+            current INTEGER NOT NULL DEFAULT 0,
+            UNIQUE(player_id, quest_id)
+        )
+        """
+    )
+
+    conn.exec(
+        """
+        CREATE TABLE IF NOT EXISTS attendance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
+            attendance_date TEXT NOT NULL,
+            player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+            UNIQUE(class_id, attendance_date, player_id)
+        )
+        """
+    )
+    attendance_class_col = next(
+        (c for c in conn.query("PRAGMA table_info(attendance)") if c["name"] == "class_id"), None
+    )
+    if attendance_class_col and attendance_class_col["notnull"] == 1:
+        # Older installs created class_id as NOT NULL - rebuild the table so a
+        # session can be logged without picking a class first.
+        conn.exec("ALTER TABLE attendance RENAME TO attendance_old")
+        conn.exec(
+            """
+            CREATE TABLE attendance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
+                attendance_date TEXT NOT NULL,
+                player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+                UNIQUE(class_id, attendance_date, player_id)
+            )
+            """
+        )
+        conn.exec(
+            "INSERT INTO attendance (id, class_id, attendance_date, player_id) "
+            "SELECT id, class_id, attendance_date, player_id FROM attendance_old"
+        )
+        conn.exec("DROP TABLE attendance_old")
 
     count = conn.query_one("SELECT COUNT(*) c FROM drills")["c"]
     if count == 0:

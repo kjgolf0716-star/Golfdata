@@ -8,13 +8,23 @@
 </head>
 <body>
 <header class="topbar">
-  <a href="/" class="brand"><span class="dot"></span> Junior Golf Tracker</a>
+  <a href="/" class="brand"><img src="/static/logo.png" alt="D3 Golf Center" class="brand-logo" /></a>
+  <nav class="topnav">
+    <a href="/" class="topnav-link active">Players</a>
+    <a href="/attendance" class="topnav-link">Attendance</a>
+    <a href="/quests" class="topnav-link">Quests</a>
+    <a href="/today" class="topnav-link">Today's Class</a>
+  </nav>
 </header>
 <main>
   <div class="toolbar">
     <input id="searchInput" class="search-input" type="text" placeholder="Search player name..." />
+    <select id="classFilterSelect" class="search-input class-filter-select"></select>
+    <button class="btn-secondary" id="manageClassesBtn">Manage Classes</button>
     <button class="btn-primary" id="addPlayerBtn">+ Add Player</button>
   </div>
+
+  <div id="hallOfFame"></div>
 
   <div id="playerList"></div>
 </main>
@@ -28,6 +38,10 @@
     <input id="playerCategoryInput" type="text" placeholder="e.g. U12, Beginner" />
     <label>Notes (optional)</label>
     <textarea id="playerNotesInput" placeholder="Notes, goals, etc."></textarea>
+    <label>Starting Level</label>
+    <select id="playerLevelSelect"></select>
+    <label>Class (optional)</label>
+    <select id="playerClassSelect"></select>
     <div class="modal-actions">
       <button class="btn-secondary" id="cancelPlayerBtn">Cancel</button>
       <button class="btn-primary" id="savePlayerBtn">Save</button>
@@ -35,6 +49,19 @@
   </div>
 </div>
 
+<div id="classModal" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:460px;">
+    <h3>Manage Classes</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin-top:-6px;">Create your own classes (e.g. "Monday 4pm", "Beginners") and assign players to them from Add/Edit Player.</p>
+    <div class="class-manager-list" id="classManagerList"></div>
+    <button class="btn-secondary" id="addClassBtn" style="margin-top:10px;width:100%;">+ Add Class</button>
+    <div class="modal-actions">
+      <button class="btn-primary" id="closeClassModalBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/gamify.js"></script>
 <script src="/static/index.js"></script>
 </body>
 </html>

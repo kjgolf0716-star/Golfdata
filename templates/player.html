@@ -8,7 +8,13 @@
 </head>
 <body>
 <header class="topbar">
-  <a href="/" class="brand"><span class="dot"></span> Junior Golf Tracker</a>
+  <a href="/" class="brand"><img src="/static/logo.png" alt="D3 Golf Center" class="brand-logo" /></a>
+  <nav class="topnav">
+    <a href="/" class="topnav-link">Players</a>
+    <a href="/attendance" class="topnav-link">Attendance</a>
+    <a href="/quests" class="topnav-link">Quests</a>
+    <a href="/today" class="topnav-link">Today's Class</a>
+  </nav>
 </header>
 <main>
   <a href="/" class="back-link">&larr; Back to players</a>
@@ -23,6 +29,8 @@
       <button class="btn-primary" id="addDateBtn">+ Add Date</button>
     </div>
   </div>
+
+  <div id="gamifyPanel" class="gamify-panel"></div>
 
   <div class="table-wrap">
     <table class="log-table" id="logTable">
@@ -59,6 +67,10 @@
     <input id="editCategoryInput" type="text" />
     <label>Notes</label>
     <textarea id="editNotesInput"></textarea>
+    <label>Level</label>
+    <select id="editLevelSelect"></select>
+    <label>Class</label>
+    <select id="editClassSelect"></select>
     <div class="modal-actions">
       <button class="btn-danger" id="deletePlayerBtn">Delete Player</button>
       <button class="btn-secondary" id="cancelEditPlayerBtn">Cancel</button>
@@ -81,6 +93,7 @@
 
 <div class="save-flash" id="saveFlash">Saved</div>
 
+<script src="/static/gamify.js"></script>
 <script src="/static/player.js"></script>
 </body>
 </html>
