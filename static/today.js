@@ -8,21 +8,18 @@ function todayDateStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function todayDrillsKey() {
-  return `todaysDrills_${todayDateStr()}`;
+async function loadDrillSelection() {
+  const res = await fetch(`/api/daily-drills?drill_date=${todayDateStr()}`);
+  const ids = await res.json();
+  return new Set(ids);
 }
 
-function loadDrillSelection() {
-  try {
-    const raw = localStorage.getItem(todayDrillsKey());
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveDrillSelection() {
-  localStorage.setItem(todayDrillsKey(), JSON.stringify([...selectedDrillIds]));
+async function toggleDrillSelection(drillId, selected) {
+  await fetch("/api/daily-drills", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ drill_date: todayDateStr(), drill_id: drillId, selected }),
+  });
 }
 
 async function init() {
@@ -34,7 +31,7 @@ async function init() {
   allPlayers = await pRes.json();
   allClasses = await cRes.json();
   allDrills = await dRes.json();
-  selectedDrillIds = loadDrillSelection();
+  selectedDrillIds = await loadDrillSelection();
   populateClassSelect();
   setDefaultDate();
   renderDrills();
@@ -147,12 +144,13 @@ function onToggle(e) {
   render();
 }
 
-function onToggleDrill(e) {
+async function onToggleDrill(e) {
   const drillId = Number(e.target.dataset.toggleDrill);
-  if (e.target.checked) selectedDrillIds.add(drillId);
+  const selected = e.target.checked;
+  if (selected) selectedDrillIds.add(drillId);
   else selectedDrillIds.delete(drillId);
-  saveDrillSelection();
   renderDrills();
+  await toggleDrillSelection(drillId, selected);
 }
 
 function escapeHtml(str) {
@@ -186,9 +184,9 @@ document.getElementById("addTodayDrillBtn").addEventListener("click", async () =
   const data = await res.json();
   allDrills.push({ id: data.id, name, description: "", sort_order: allDrills.length });
   selectedDrillIds.add(data.id);
-  saveDrillSelection();
   input.value = "";
   renderDrills();
+  await toggleDrillSelection(data.id, true);
 });
 
 document.getElementById("newDrillNameInput").addEventListener("keydown", (e) => {

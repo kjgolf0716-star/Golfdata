@@ -232,6 +232,17 @@ def init_db():
             )
         conn.exec("DROP TABLE attendance_old")
 
+    conn.exec(
+        """
+        CREATE TABLE IF NOT EXISTS daily_drills (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            drill_date TEXT NOT NULL,
+            drill_id INTEGER NOT NULL REFERENCES drills(id) ON DELETE CASCADE,
+            UNIQUE(drill_date, drill_id)
+        )
+        """
+    )
+
     count = conn.query_one("SELECT COUNT(*) c FROM drills")["c"]
     if count == 0:
         default_drills = [

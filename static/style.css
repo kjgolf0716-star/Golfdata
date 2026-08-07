@@ -1228,6 +1228,56 @@ table.log-table th.actions-col { min-width: 40px; }
   border-radius: var(--radius);
 }
 
+.public-today-drills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.public-today-drill-tag {
+  background: linear-gradient(135deg, var(--green-600), var(--green-500));
+  color: white;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 999px;
+}
+
+.public-training-date {
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 12px;
+}
+.public-training-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.public-training-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--green-50);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+.public-training-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--green-900);
+}
+.public-training-values {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.public-training-values strong {
+  color: var(--green-700);
+}
+
 .public-quest-list {
   display: flex;
   flex-direction: column;

@@ -58,6 +58,12 @@ class EntryIn(BaseModel):
     value: str = ""
 
 
+class DailyDrillIn(BaseModel):
+    drill_date: str
+    drill_id: int
+    selected: bool = True
+
+
 class QuestIn(BaseModel):
     name: str
     icon: str = "🎯"
@@ -334,6 +340,36 @@ def reorder_drills(payload: DrillReorder):
     with get_conn() as conn:
         for idx, drill_id in enumerate(payload.order):
             conn.exec("UPDATE drills SET sort_order=? WHERE id=?", (idx, drill_id))
+    return {"ok": True}
+
+
+@app.get("/api/daily-drills")
+def get_daily_drills(drill_date: str):
+    with get_conn() as conn:
+        rows = conn.query("SELECT drill_id FROM daily_drills WHERE drill_date=?", (drill_date,))
+    return [r["drill_id"] for r in rows]
+
+
+@app.post("/api/daily-drills")
+def set_daily_drill(entry: DailyDrillIn):
+    with get_conn() as conn:
+        drill = conn.query_one("SELECT id FROM drills WHERE id=?", (entry.drill_id,))
+        if not drill:
+            raise HTTPException(404, "Drill not found")
+        if entry.selected:
+            conn.exec(
+                """
+                INSERT INTO daily_drills (drill_date, drill_id)
+                VALUES (?, ?)
+                ON CONFLICT(drill_date, drill_id) DO NOTHING
+                """,
+                (entry.drill_date, entry.drill_id),
+            )
+        else:
+            conn.exec(
+                "DELETE FROM daily_drills WHERE drill_date=? AND drill_id=?",
+                (entry.drill_date, entry.drill_id),
+            )
     return {"ok": True}
 
 
