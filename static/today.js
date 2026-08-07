@@ -8,25 +8,8 @@ function todayDateStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function todayKey() {
-  return `todaysClass_${todayDateStr()}`;
-}
-
 function todayDrillsKey() {
   return `todaysDrills_${todayDateStr()}`;
-}
-
-function loadSelection() {
-  try {
-    const raw = localStorage.getItem(todayKey());
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveSelection() {
-  localStorage.setItem(todayKey(), JSON.stringify([...selectedIds]));
 }
 
 function loadDrillSelection() {
@@ -51,12 +34,11 @@ async function init() {
   allPlayers = await pRes.json();
   allClasses = await cRes.json();
   allDrills = await dRes.json();
-  selectedIds = loadSelection();
   selectedDrillIds = loadDrillSelection();
   populateClassSelect();
   setDefaultDate();
-  render();
   renderDrills();
+  await loadSessionAttendance();
 }
 
 function populateClassSelect() {
@@ -70,6 +52,28 @@ function populateClassSelect() {
 function setDefaultDate() {
   const input = document.getElementById("todayDateInput");
   if (!input.value) input.value = todayDateStr();
+}
+
+// Multiple classes can run on the same day, so which roster is "current" is
+// keyed by class + date + time. Switching any of those reloads whatever was
+// already saved for that exact session from the server.
+async function loadSessionAttendance() {
+  const classValue = document.getElementById("todayClassSelect").value;
+  const date = document.getElementById("todayDateInput").value;
+  const time = document.getElementById("todayTimeInput").value;
+
+  if (!date) {
+    selectedIds = new Set();
+    render();
+    return;
+  }
+
+  const params = new URLSearchParams({ attendance_date: date, attendance_time: time });
+  if (classValue !== "") params.set("class_id", classValue);
+  const res = await fetch(`/api/attendance?${params.toString()}`);
+  const ids = await res.json();
+  selectedIds = new Set(ids);
+  render();
 }
 
 function render() {
@@ -140,7 +144,6 @@ function onToggle(e) {
   const playerId = Number(e.target.dataset.togglePlayer);
   if (e.target.checked) selectedIds.add(playerId);
   else selectedIds.delete(playerId);
-  saveSelection();
   render();
 }
 
@@ -159,11 +162,14 @@ function escapeHtml(str) {
 }
 
 document.getElementById("todayShowOnlyToggle").addEventListener("change", render);
+document.getElementById("todayClassSelect").addEventListener("change", loadSessionAttendance);
+document.getElementById("todayDateInput").addEventListener("change", loadSessionAttendance);
+document.getElementById("todayTimeInput").addEventListener("change", loadSessionAttendance);
+
 document.getElementById("todayClearBtn").addEventListener("click", () => {
   if (selectedIds.size === 0) return;
-  if (!confirm("Clear today's selection?")) return;
+  if (!confirm("Clear the current selection? (Click Save Attendance after to make it permanent.)")) return;
   selectedIds = new Set();
-  saveSelection();
   render();
 });
 
@@ -193,6 +199,7 @@ document.getElementById("todaySaveBtn").addEventListener("click", async () => {
   const classValue = document.getElementById("todayClassSelect").value;
   const classId = classValue === "" ? null : Number(classValue);
   const date = document.getElementById("todayDateInput").value;
+  const time = document.getElementById("todayTimeInput").value;
 
   if (!date) {
     alert("Please choose a date.");
@@ -211,6 +218,7 @@ document.getElementById("todaySaveBtn").addEventListener("click", async () => {
         body: JSON.stringify({
           class_id: classId,
           attendance_date: date,
+          attendance_time: time,
           player_id: playerId,
           present: true,
         }),

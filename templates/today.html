@@ -19,7 +19,7 @@
 </header>
 <main>
   <h1 class="page-title">Today's Class</h1>
-  <p class="page-subtitle">Pick whichever juniors are here today, choose the class and date, then save to record attendance.</p>
+  <p class="page-subtitle">Pick whichever juniors are here today, choose the class, date and time, then save to record attendance. Running more than one class today? Just change the time and save again.</p>
 
   <div class="attendance-toolbar">
     <label class="attendance-field">Class
@@ -27,6 +27,9 @@
     </label>
     <label class="attendance-field">Date
       <input type="date" id="todayDateInput" />
+    </label>
+    <label class="attendance-field">Time
+      <input type="time" id="todayTimeInput" />
     </label>
     <span id="todayCount" class="attendance-count"></span>
     <label class="attendance-toggle">

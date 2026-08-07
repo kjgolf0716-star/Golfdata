@@ -152,17 +152,21 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
             attendance_date TEXT NOT NULL,
+            attendance_time TEXT NOT NULL DEFAULT '',
             player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-            UNIQUE(class_id, attendance_date, player_id)
+            UNIQUE(class_id, attendance_date, attendance_time, player_id)
         )
         """
     )
-    attendance_class_col = next(
-        (c for c in conn.query("PRAGMA table_info(attendance)") if c["name"] == "class_id"), None
+    attendance_cols_info = conn.query("PRAGMA table_info(attendance)")
+    attendance_cols = {c["name"] for c in attendance_cols_info}
+    class_id_notnull = any(
+        c["name"] == "class_id" and c["notnull"] == 1 for c in attendance_cols_info
     )
-    if attendance_class_col and attendance_class_col["notnull"] == 1:
-        # Older installs created class_id as NOT NULL - rebuild the table so a
-        # session can be logged without picking a class first.
+    if "attendance_time" not in attendance_cols or class_id_notnull:
+        # Older installs: class_id was NOT NULL and/or there was no time
+        # column (one session per day per class). Rebuild so a coach can run
+        # multiple timed sessions for the same class on the same day.
         conn.exec("ALTER TABLE attendance RENAME TO attendance_old")
         conn.exec(
             """
@@ -170,15 +174,22 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
                 attendance_date TEXT NOT NULL,
+                attendance_time TEXT NOT NULL DEFAULT '',
                 player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-                UNIQUE(class_id, attendance_date, player_id)
+                UNIQUE(class_id, attendance_date, attendance_time, player_id)
             )
             """
         )
-        conn.exec(
-            "INSERT INTO attendance (id, class_id, attendance_date, player_id) "
-            "SELECT id, class_id, attendance_date, player_id FROM attendance_old"
-        )
+        if "attendance_time" in attendance_cols:
+            conn.exec(
+                "INSERT INTO attendance (id, class_id, attendance_date, attendance_time, player_id) "
+                "SELECT id, class_id, attendance_date, attendance_time, player_id FROM attendance_old"
+            )
+        else:
+            conn.exec(
+                "INSERT INTO attendance (id, class_id, attendance_date, attendance_time, player_id) "
+                "SELECT id, class_id, attendance_date, '', player_id FROM attendance_old"
+            )
         conn.exec("DROP TABLE attendance_old")
 
     count = conn.query_one("SELECT COUNT(*) c FROM drills")["c"]

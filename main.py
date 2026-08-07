@@ -77,6 +77,7 @@ class QuestProgressIn(BaseModel):
 class AttendanceIn(BaseModel):
     class_id: int | None = None
     attendance_date: str
+    attendance_time: str = ""
     player_id: int
     present: bool = True
 
@@ -434,12 +435,12 @@ def _parse_class_id(class_id: str | None):
 
 
 @app.get("/api/attendance")
-def get_attendance(attendance_date: str, class_id: str | None = None):
+def get_attendance(attendance_date: str, class_id: str | None = None, attendance_time: str = ""):
     cid = _parse_class_id(class_id)
     with get_conn() as conn:
         rows = conn.query(
-            "SELECT player_id FROM attendance WHERE class_id IS ? AND attendance_date=?",
-            (cid, attendance_date),
+            "SELECT player_id FROM attendance WHERE class_id IS ? AND attendance_date=? AND attendance_time=?",
+            (cid, attendance_date, attendance_time),
         )
     return [r["player_id"] for r in rows]
 
@@ -450,11 +451,11 @@ def get_attendance_month(month: str, class_id: str | None = None):
     with get_conn() as conn:
         rows = conn.query(
             """
-            SELECT a.attendance_date, a.player_id, p.name AS player_name
+            SELECT a.attendance_date, a.attendance_time, a.player_id, p.name AS player_name
             FROM attendance a
             JOIN players p ON p.id = a.player_id
             WHERE a.class_id IS ? AND a.attendance_date LIKE ?
-            ORDER BY a.attendance_date, p.name COLLATE NOCASE
+            ORDER BY a.attendance_date, a.attendance_time, p.name COLLATE NOCASE
             """,
             (cid, f"{month}%"),
         )
@@ -473,12 +474,12 @@ def set_attendance(entry: AttendanceIn):
             raise HTTPException(404, "Player not found")
 
         conn.exec(
-            "DELETE FROM attendance WHERE class_id IS ? AND attendance_date=? AND player_id=?",
-            (entry.class_id, entry.attendance_date, entry.player_id),
+            "DELETE FROM attendance WHERE class_id IS ? AND attendance_date=? AND attendance_time=? AND player_id=?",
+            (entry.class_id, entry.attendance_date, entry.attendance_time, entry.player_id),
         )
         if entry.present:
             conn.exec(
-                "INSERT INTO attendance (class_id, attendance_date, player_id) VALUES (?, ?, ?)",
-                (entry.class_id, entry.attendance_date, entry.player_id),
+                "INSERT INTO attendance (class_id, attendance_date, attendance_time, player_id) VALUES (?, ?, ?, ?)",
+                (entry.class_id, entry.attendance_date, entry.attendance_time, entry.player_id),
             )
     return {"ok": True}
