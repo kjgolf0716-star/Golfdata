@@ -1,9 +1,19 @@
 let allPlayers = [];
 let allClasses = [];
+let allDrills = [];
 let selectedIds = new Set();
+let selectedDrillIds = new Set();
+
+function todayDateStr() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function todayKey() {
-  return `todaysClass_${new Date().toISOString().slice(0, 10)}`;
+  return `todaysClass_${todayDateStr()}`;
+}
+
+function todayDrillsKey() {
+  return `todaysDrills_${todayDateStr()}`;
 }
 
 function loadSelection() {
@@ -19,14 +29,34 @@ function saveSelection() {
   localStorage.setItem(todayKey(), JSON.stringify([...selectedIds]));
 }
 
+function loadDrillSelection() {
+  try {
+    const raw = localStorage.getItem(todayDrillsKey());
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDrillSelection() {
+  localStorage.setItem(todayDrillsKey(), JSON.stringify([...selectedDrillIds]));
+}
+
 async function init() {
-  const [pRes, cRes] = await Promise.all([fetch("/api/players"), fetch("/api/classes")]);
+  const [pRes, cRes, dRes] = await Promise.all([
+    fetch("/api/players"),
+    fetch("/api/classes"),
+    fetch("/api/drills"),
+  ]);
   allPlayers = await pRes.json();
   allClasses = await cRes.json();
+  allDrills = await dRes.json();
   selectedIds = loadSelection();
+  selectedDrillIds = loadDrillSelection();
   populateClassSelect();
   setDefaultDate();
   render();
+  renderDrills();
 }
 
 function populateClassSelect() {
@@ -39,7 +69,7 @@ function populateClassSelect() {
 
 function setDefaultDate() {
   const input = document.getElementById("todayDateInput");
-  if (!input.value) input.value = new Date().toISOString().slice(0, 10);
+  if (!input.value) input.value = todayDateStr();
 }
 
 function render() {
@@ -81,12 +111,45 @@ function render() {
   });
 }
 
+function renderDrills() {
+  const container = document.getElementById("todayDrillsList");
+  document.getElementById("todayDrillsCount").textContent = `${selectedDrillIds.size} / ${allDrills.length} selected`;
+
+  if (allDrills.length === 0) {
+    container.innerHTML = `<div class="empty-state">No drills yet. Add one below, or from the Drills tab.</div>`;
+    return;
+  }
+
+  container.innerHTML = allDrills
+    .map((d) => {
+      const selected = selectedDrillIds.has(d.id);
+      return `
+    <label class="today-drill-tag ${selected ? "selected" : ""}">
+      <input type="checkbox" ${selected ? "checked" : ""} data-toggle-drill="${d.id}" />
+      ${escapeHtml(d.name)}
+    </label>`;
+    })
+    .join("");
+
+  container.querySelectorAll("[data-toggle-drill]").forEach((cb) => {
+    cb.addEventListener("change", onToggleDrill);
+  });
+}
+
 function onToggle(e) {
   const playerId = Number(e.target.dataset.togglePlayer);
   if (e.target.checked) selectedIds.add(playerId);
   else selectedIds.delete(playerId);
   saveSelection();
   render();
+}
+
+function onToggleDrill(e) {
+  const drillId = Number(e.target.dataset.toggleDrill);
+  if (e.target.checked) selectedDrillIds.add(drillId);
+  else selectedDrillIds.delete(drillId);
+  saveDrillSelection();
+  renderDrills();
 }
 
 function escapeHtml(str) {
@@ -102,6 +165,28 @@ document.getElementById("todayClearBtn").addEventListener("click", () => {
   selectedIds = new Set();
   saveSelection();
   render();
+});
+
+document.getElementById("addTodayDrillBtn").addEventListener("click", async () => {
+  const input = document.getElementById("newDrillNameInput");
+  const name = input.value.trim();
+  if (!name) return;
+
+  const res = await fetch("/api/drills", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, description: "" }),
+  });
+  const data = await res.json();
+  allDrills.push({ id: data.id, name, description: "", sort_order: allDrills.length });
+  selectedDrillIds.add(data.id);
+  saveDrillSelection();
+  input.value = "";
+  renderDrills();
+});
+
+document.getElementById("newDrillNameInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("addTodayDrillBtn").click();
 });
 
 document.getElementById("todaySaveBtn").addEventListener("click", async () => {
