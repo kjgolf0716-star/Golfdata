@@ -103,6 +103,11 @@ def quests_page():
     return FileResponse(BASE_DIR / "templates/quests.html")
 
 
+@app.get("/drills")
+def drills_page():
+    return FileResponse(BASE_DIR / "templates/drills.html")
+
+
 @app.get("/today")
 def today_page():
     return FileResponse(BASE_DIR / "templates/today.html")

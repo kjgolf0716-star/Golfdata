@@ -13,6 +13,7 @@
     <a href="/" class="topnav-link">Players</a>
     <a href="/attendance" class="topnav-link">Attendance</a>
     <a href="/quests" class="topnav-link">Quests</a>
+    <a href="/drills" class="topnav-link">Drills</a>
     <a href="/today" class="topnav-link">Today's Class</a>
   </nav>
 </header>
@@ -24,7 +25,6 @@
       <div class="sub" id="playerMeta"></div>
     </div>
     <div class="header-actions">
-      <button class="btn-secondary" id="manageDrillsBtn">Manage Drills</button>
       <button class="btn-secondary" id="editPlayerBtn">Edit Player</button>
       <button class="btn-primary" id="addDateBtn">+ Add Date</button>
     </div>
@@ -75,18 +75,6 @@
       <button class="btn-danger" id="deletePlayerBtn">Delete Player</button>
       <button class="btn-secondary" id="cancelEditPlayerBtn">Cancel</button>
       <button class="btn-primary" id="saveEditPlayerBtn">Save</button>
-    </div>
-  </div>
-</div>
-
-<div id="drillModal" class="modal-backdrop hidden">
-  <div class="modal" style="max-width:520px;">
-    <h3>Manage Drills</h3>
-    <p style="font-size:12.5px;color:var(--muted);margin-top:-6px;">Drills added or edited here apply to every player's log in common.</p>
-    <div class="drill-manager-list" id="drillManagerList"></div>
-    <button class="btn-secondary" id="addDrillBtn" style="margin-top:10px;width:100%;">+ Add Drill</button>
-    <div class="modal-actions">
-      <button class="btn-primary" id="closeDrillModalBtn">Close</button>
     </div>
   </div>
 </div>

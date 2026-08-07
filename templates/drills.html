@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Quests · Junior Golf Tracker</title>
+<title>Drills · Junior Golf Tracker</title>
 <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
@@ -12,25 +12,19 @@
   <nav class="topnav">
     <a href="/" class="topnav-link">Players</a>
     <a href="/attendance" class="topnav-link">Attendance</a>
-    <a href="/quests" class="topnav-link active">Quests</a>
-    <a href="/drills" class="topnav-link">Drills</a>
+    <a href="/quests" class="topnav-link">Quests</a>
+    <a href="/drills" class="topnav-link active">Drills</a>
     <a href="/today" class="topnav-link">Today's Class</a>
   </nav>
 </header>
 <main>
-  <h1 class="page-title">Quest Management</h1>
-  <p class="page-subtitle">Every quest is scoped to a level. Any player can be signed up for any quest, regardless of class.</p>
+  <h1 class="page-title">Drill Management</h1>
+  <p class="page-subtitle">Drills are shared by every player's training log. Add, edit, or remove them here — changes apply everywhere right away.</p>
 
-  <div class="attendance-toolbar">
-    <label class="attendance-field">Level
-      <select id="questLevelSelect"></select>
-    </label>
-  </div>
-
-  <div id="questManagerBody"></div>
+  <div id="drillManagerBody"></div>
 </main>
 
 <script src="/static/gamify.js"></script>
-<script src="/static/quests.js"></script>
+<script src="/static/drills.js"></script>
 </body>
 </html>
