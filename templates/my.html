@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My Golf Journey · D3 Golf Center</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="public-body">
+<div class="public-wrap">
+  <div class="public-brand">
+    <img src="/static/logo.png" alt="D3 Golf Center" />
+  </div>
+
+  <div class="public-card public-login-card">
+    <div class="public-login-title">🏌️ Enter Your Code</div>
+    <p class="public-login-sub">Ask your coach for your personal code to see your level, quests, and achievements.</p>
+    <form id="codeForm" autocomplete="off">
+      <input type="text" id="codeInput" class="public-code-input" placeholder="ABC123" maxlength="8" autocapitalize="characters" />
+      <button type="submit" class="btn btn-primary public-login-btn">Go &rarr;</button>
+    </form>
+    <div id="codeError" class="public-login-error hidden">That code wasn't found. Double-check with your coach.</div>
+  </div>
+</div>
+
+<script src="/static/my_login.js"></script>
+</body>
+</html>

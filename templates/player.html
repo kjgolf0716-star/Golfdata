@@ -25,9 +25,17 @@
       <div class="sub" id="playerMeta"></div>
     </div>
     <div class="header-actions">
+      <a class="btn btn-secondary" id="publicProfileLink" href="#" target="_blank" rel="noopener">🎮 View Junior Profile</a>
       <button class="btn-secondary" id="editPlayerBtn">Edit Player</button>
       <button class="btn-primary" id="addDateBtn">+ Add Date</button>
     </div>
+  </div>
+
+  <div class="access-code-bar">
+    Junior login: <strong id="myLoginUrl">-</strong> &middot; their code is
+    <button class="access-code-chip" id="accessCodeChip" title="Click to copy">------</button>
+    <button class="access-code-regen" id="regenerateCodeBtn" title="Generate a new code">&#x21bb; New code</button>
+    <span id="accessCodeCopied" class="access-code-copied hidden">Copied!</span>
   </div>
 
   <div id="gamifyPanel" class="gamify-panel"></div>

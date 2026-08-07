@@ -123,7 +123,32 @@ function renderHeader() {
   if (player.notes) bits.push(player.notes);
   document.getElementById("playerMeta").textContent = bits.join(" · ");
   document.title = `${player.name} · Junior Golf Tracker`;
+  document.getElementById("publicProfileLink").href = `/p/${playerId}`;
+  document.getElementById("myLoginUrl").textContent = `${window.location.origin}/my`;
+  document.getElementById("accessCodeChip").textContent = player.access_code || "------";
 }
+
+document.getElementById("accessCodeChip").addEventListener("click", async () => {
+  if (!player || !player.access_code) return;
+  try {
+    await navigator.clipboard.writeText(player.access_code);
+  } catch {
+    // clipboard API unavailable - selection still visible on the chip
+  }
+  const copied = document.getElementById("accessCodeCopied");
+  copied.classList.remove("hidden");
+  clearTimeout(copied._t);
+  copied._t = setTimeout(() => copied.classList.add("hidden"), 1500);
+});
+
+document.getElementById("regenerateCodeBtn").addEventListener("click", async () => {
+  if (!confirm("Generate a new code for this player? Their old code will stop working.")) return;
+  const res = await fetch(`/api/players/${playerId}/regenerate-code`, { method: "POST" });
+  const data = await res.json();
+  player.access_code = data.access_code;
+  document.getElementById("accessCodeChip").textContent = player.access_code;
+  flashSaved();
+});
 
 function renderTable() {
   const headRow = document.getElementById("tableHeadRow");

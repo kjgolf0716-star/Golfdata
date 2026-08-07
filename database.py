@@ -1,5 +1,12 @@
 import os
+import secrets
 from pathlib import Path
+
+CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no O/0, I/1, L - easy to type
+
+
+def generate_access_code(length=6):
+    return "".join(secrets.choice(CODE_ALPHABET) for _ in range(length))
 
 TURSO_URL = os.environ.get("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
@@ -77,6 +84,20 @@ def init_db():
         conn.exec("ALTER TABLE players ADD COLUMN level_override INTEGER")
     if "class_id" not in player_cols:
         conn.exec("ALTER TABLE players ADD COLUMN class_id INTEGER")
+    if "access_code" not in player_cols:
+        conn.exec("ALTER TABLE players ADD COLUMN access_code TEXT")
+    conn.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_players_access_code ON players(access_code)")
+
+    existing_codes = {
+        row["access_code"] for row in conn.query("SELECT access_code FROM players") if row["access_code"]
+    }
+    needs_code = conn.query("SELECT id FROM players WHERE access_code IS NULL OR access_code = ''")
+    for row in needs_code:
+        code = generate_access_code()
+        while code in existing_codes:
+            code = generate_access_code()
+        existing_codes.add(code)
+        conn.exec("UPDATE players SET access_code=? WHERE id=?", (code, row["id"]))
 
     conn.exec(
         """

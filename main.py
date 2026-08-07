@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import gamify
-from database import get_conn, init_db
+from database import generate_access_code, get_conn, init_db
 
 BASE_DIR = Path(__file__).parent
 
@@ -94,6 +94,16 @@ def player_page(player_id: int):
     return FileResponse(BASE_DIR / "templates/player.html")
 
 
+@app.get("/p/{player_id}")
+def public_player_page(player_id: int):
+    return FileResponse(BASE_DIR / "templates/public_player.html")
+
+
+@app.get("/my")
+def my_login_page():
+    return FileResponse(BASE_DIR / "templates/my.html")
+
+
 @app.get("/attendance")
 def attendance_page():
     return FileResponse(BASE_DIR / "templates/attendance.html")
@@ -160,6 +170,7 @@ def list_players():
             row["quest_progress_pct"] = round(100 * sum(fractions) / len(fractions)) if fractions else None
         else:
             row["quest_progress_pct"] = None
+        row.pop("access_code", None)
     return rows
 
 
@@ -184,13 +195,22 @@ def get_player_stats(player_id: int):
     return gamify.compute_player_stats(entries, num_drills, level_override)
 
 
+def _unique_access_code(conn):
+    existing = {r["access_code"] for r in conn.query("SELECT access_code FROM players") if r["access_code"]}
+    code = generate_access_code()
+    while code in existing:
+        code = generate_access_code()
+    return code
+
+
 @app.post("/api/players")
 def create_player(player: PlayerIn):
     with get_conn() as conn:
+        code = _unique_access_code(conn)
         cur = conn.exec(
-            "INSERT INTO players (name, category, notes, level_override, class_id) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO players (name, category, notes, level_override, class_id, access_code) VALUES (?, ?, ?, ?, ?, ?)",
             (player.name.strip(), player.category.strip(), player.notes.strip(),
-             _clean_level_override(player.level_override), player.class_id),
+             _clean_level_override(player.level_override), player.class_id, code),
         )
         new_id = cur.lastrowid
     return {"id": new_id}
@@ -205,6 +225,28 @@ def update_player(player_id: int, player: PlayerIn):
              _clean_level_override(player.level_override), player.class_id, player_id),
         )
     return {"ok": True}
+
+
+@app.get("/api/players/code/{code}")
+def get_player_by_code(code: str):
+    with get_conn() as conn:
+        row = conn.query_one(
+            "SELECT id, name FROM players WHERE access_code=?", (code.strip().upper(),)
+        )
+    if not row:
+        raise HTTPException(404, "Code not found")
+    return row
+
+
+@app.post("/api/players/{player_id}/regenerate-code")
+def regenerate_access_code(player_id: int):
+    with get_conn() as conn:
+        player = conn.query_one("SELECT id FROM players WHERE id=?", (player_id,))
+        if not player:
+            raise HTTPException(404, "Player not found")
+        code = _unique_access_code(conn)
+        conn.exec("UPDATE players SET access_code=? WHERE id=?", (code, player_id))
+    return {"access_code": code}
 
 
 @app.delete("/api/players/{player_id}")
