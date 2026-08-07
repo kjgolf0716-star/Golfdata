@@ -1310,11 +1310,10 @@ table.log-table th.actions-col { min-width: 40px; }
   padding: 16px;
   border: 2px solid var(--border);
   border-radius: 14px;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 800;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.02em;
   text-align: center;
-  text-transform: uppercase;
   font-family: ui-monospace, Menlo, monospace;
   color: var(--green-900);
   margin-bottom: 14px;

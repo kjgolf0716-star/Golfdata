@@ -1,12 +1,25 @@
 import os
-import secrets
+import re
 from pathlib import Path
 
-CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no O/0, I/1, L - easy to type
+
+def slugify_name(name):
+    """"Alex Li" -> "Alex_Li" - readable login codes juniors can remember."""
+    base = "_".join(name.strip().split())
+    base = re.sub(r"[^A-Za-z0-9_]", "", base)
+    return base or "Player"
 
 
-def generate_access_code(length=6):
-    return "".join(secrets.choice(CODE_ALPHABET) for _ in range(length))
+def generate_access_code(name, existing_codes_lower):
+    """existing_codes_lower: a set of already-used codes, lowercased."""
+    base = slugify_name(name)
+    if base.lower() not in existing_codes_lower:
+        return base
+    i = 2
+    while f"{base}{i}".lower() in existing_codes_lower:
+        i += 1
+    return f"{base}{i}"
+
 
 TURSO_URL = os.environ.get("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
@@ -88,16 +101,22 @@ def init_db():
         conn.exec("ALTER TABLE players ADD COLUMN access_code TEXT")
     conn.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_players_access_code ON players(access_code)")
 
-    existing_codes = {
-        row["access_code"] for row in conn.query("SELECT access_code FROM players") if row["access_code"]
-    }
-    needs_code = conn.query("SELECT id FROM players WHERE access_code IS NULL OR access_code = ''")
-    for row in needs_code:
-        code = generate_access_code()
-        while code in existing_codes:
-            code = generate_access_code()
-        existing_codes.add(code)
-        conn.exec("UPDATE players SET access_code=? WHERE id=?", (code, row["id"]))
+    # Give every player a readable "FirstName_LastName" login code. Runs
+    # every startup but is idempotent: a player is only touched if their
+    # current code doesn't already match their name.
+    all_players = conn.query("SELECT id, name, access_code FROM players")
+    existing_codes_lower = {p["access_code"].lower() for p in all_players if p["access_code"]}
+    for p in all_players:
+        expected_base = slugify_name(p["name"]).lower()
+        current = (p["access_code"] or "").lower()
+        matches = current == expected_base or re.match(rf"^{re.escape(expected_base)}\d+$", current)
+        if matches:
+            continue
+        if p["access_code"]:
+            existing_codes_lower.discard(p["access_code"].lower())
+        new_code = generate_access_code(p["name"], existing_codes_lower)
+        existing_codes_lower.add(new_code.lower())
+        conn.exec("UPDATE players SET access_code=? WHERE id=?", (new_code, p["id"]))
 
     conn.exec(
         """

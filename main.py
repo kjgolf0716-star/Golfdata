@@ -195,18 +195,17 @@ def get_player_stats(player_id: int):
     return gamify.compute_player_stats(entries, num_drills, level_override)
 
 
-def _unique_access_code(conn):
-    existing = {r["access_code"] for r in conn.query("SELECT access_code FROM players") if r["access_code"]}
-    code = generate_access_code()
-    while code in existing:
-        code = generate_access_code()
-    return code
+def _unique_access_code(conn, name):
+    existing_lower = {
+        r["access_code"].lower() for r in conn.query("SELECT access_code FROM players") if r["access_code"]
+    }
+    return generate_access_code(name, existing_lower)
 
 
 @app.post("/api/players")
 def create_player(player: PlayerIn):
     with get_conn() as conn:
-        code = _unique_access_code(conn)
+        code = _unique_access_code(conn, player.name.strip())
         cur = conn.exec(
             "INSERT INTO players (name, category, notes, level_override, class_id, access_code) VALUES (?, ?, ?, ?, ?, ?)",
             (player.name.strip(), player.category.strip(), player.notes.strip(),
@@ -231,7 +230,7 @@ def update_player(player_id: int, player: PlayerIn):
 def get_player_by_code(code: str):
     with get_conn() as conn:
         row = conn.query_one(
-            "SELECT id, name FROM players WHERE access_code=?", (code.strip().upper(),)
+            "SELECT id, name FROM players WHERE access_code = ? COLLATE NOCASE", (code.strip(),)
         )
     if not row:
         raise HTTPException(404, "Code not found")
@@ -241,10 +240,10 @@ def get_player_by_code(code: str):
 @app.post("/api/players/{player_id}/regenerate-code")
 def regenerate_access_code(player_id: int):
     with get_conn() as conn:
-        player = conn.query_one("SELECT id FROM players WHERE id=?", (player_id,))
+        player = conn.query_one("SELECT id, name FROM players WHERE id=?", (player_id,))
         if not player:
             raise HTTPException(404, "Player not found")
-        code = _unique_access_code(conn)
+        code = _unique_access_code(conn, player["name"])
         conn.exec("UPDATE players SET access_code=? WHERE id=?", (code, player_id))
     return {"access_code": code}
 
