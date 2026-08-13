@@ -200,4 +200,9 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+document.getElementById("switchAccountBtn").addEventListener("click", () => {
+  localStorage.removeItem("golf_access_code");
+  window.location.href = "/my";
+});
+
 init();

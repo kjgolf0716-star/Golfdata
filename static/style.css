@@ -1383,3 +1383,24 @@ table.log-table th.actions-col { min-width: 40px; }
   font-size: 13px;
   font-weight: 600;
 }
+.public-login-remember {
+  margin: 16px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.public-switch-link {
+  display: block;
+  margin: 14px auto 0;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.75);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 6px;
+}
+.public-switch-link:hover {
+  color: #fff;
+}
