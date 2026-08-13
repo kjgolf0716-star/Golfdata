@@ -77,6 +77,29 @@ def get_conn():
     return Conn(_raw_connect())
 
 
+def get_or_create_setting(conn, key, default_factory):
+    conn.exec("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    row = conn.query_one("SELECT value FROM app_settings WHERE key=?", (key,))
+    if row:
+        return row["value"]
+    value = default_factory()
+    conn.exec(
+        "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING",
+        (key, value),
+    )
+    row = conn.query_one("SELECT value FROM app_settings WHERE key=?", (key,))
+    return row["value"] if row else value
+
+
+def set_setting(conn, key, value):
+    conn.exec("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    conn.exec(
+        "INSERT INTO app_settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (key, value),
+    )
+
+
 def init_db():
     conn = get_conn()
     conn.exec(
@@ -231,6 +254,8 @@ def init_db():
                 "SELECT id, class_id, attendance_date, '', player_id FROM attendance_old"
             )
         conn.exec("DROP TABLE attendance_old")
+
+    conn.exec("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
 
     conn.exec(
         """

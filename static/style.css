@@ -71,6 +71,24 @@ header.topbar .brand-logo {
   color: white;
   background: rgba(255,255,255,0.16);
 }
+button.topnav-link {
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+}
+.topnav-logout {
+  margin-left: 6px;
+  border-left: 1px solid rgba(255,255,255,0.2);
+  border-radius: 0;
+  padding-left: 14px;
+}
+.change-pin-success {
+  margin-top: 14px;
+  color: var(--green-500);
+  font-size: 13px;
+  font-weight: 600;
+}
 
 .page-title {
   font-size: 22px;

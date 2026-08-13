@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Coach Login · D3 Golf Center</title>
+<link rel="stylesheet" href="/static/style.css" />
+<link rel="manifest" href="/static/manifest-coach.json" />
+<meta name="theme-color" content="#0b3d24" />
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="D3 Coach" />
+</head>
+<body class="public-body">
+<div class="public-wrap">
+  <div class="public-brand">
+    <img src="/static/logo.png" alt="D3 Golf Center" />
+  </div>
+
+  <div class="public-card public-login-card">
+    <div class="public-login-title">🔒 Coach Login</div>
+    <p class="public-login-sub">Enter your PIN to manage players, attendance, drills, and quests.</p>
+    <form id="pinForm" autocomplete="off">
+      <input type="password" inputmode="numeric" id="pinInput" class="public-code-input" placeholder="••••" maxlength="20" autofocus />
+      <button type="submit" class="btn btn-primary public-login-btn">Log In &rarr;</button>
+    </form>
+    <div id="pinError" class="public-login-error hidden">Incorrect PIN. Try again.</div>
+  </div>
+
+  <div class="public-footer">Juniors and parents: use your own link instead of this page.</div>
+</div>
+
+<script src="/static/coach_login.js"></script>
+</body>
+</html>

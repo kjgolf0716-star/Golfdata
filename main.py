@@ -1,15 +1,32 @@
+import hashlib
+import os
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.sessions import SessionMiddleware
 
 import gamify
-from database import generate_access_code, get_conn, init_db
+from database import generate_access_code, get_conn, get_or_create_setting, init_db, set_setting
 
 BASE_DIR = Path(__file__).parent
+
+
+def _hash_pin(pin: str) -> str:
+    return hashlib.sha256(pin.strip().encode()).hexdigest()
+
+
+# The session secret and coach PIN live in the DB (not an env var) since we
+# don't have dashboard access to set env vars on the hosting platform - the
+# coach can change the PIN from within the app instead. Default PIN is 1234;
+# change it via "Change PIN" right after first deploy.
+with get_conn() as _conn:
+    _SESSION_SECRET = get_or_create_setting(_conn, "session_secret", lambda: secrets.token_urlsafe(32))
+    get_or_create_setting(_conn, "coach_pin_hash", lambda: _hash_pin("1234"))
 
 
 @asynccontextmanager
@@ -19,7 +36,25 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Junior Golf Tracker", lifespan=lifespan)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=_SESSION_SECRET,
+    same_site="lax",
+    https_only=bool(os.environ.get("TURSO_DATABASE_URL")),
+)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+
+
+def require_coach(request: Request):
+    if not request.session.get("coach"):
+        raise HTTPException(401, "Not authenticated")
+
+
+def _require_coach_page(request: Request):
+    """For page routes: bounce to the PIN screen instead of a bare 401."""
+    if not request.session.get("coach"):
+        return RedirectResponse(f"/coach-login?next={request.url.path}")
+    return None
 
 
 def _clean_level_override(value):
@@ -90,14 +125,21 @@ class AttendanceIn(BaseModel):
 
 # ---------- Pages ----------
 
+@app.get("/coach-login")
+def coach_login_page(request: Request):
+    if request.session.get("coach"):
+        return RedirectResponse("/")
+    return FileResponse(BASE_DIR / "templates/coach_login.html")
+
+
 @app.get("/")
-def index_page():
-    return FileResponse(BASE_DIR / "templates/index.html")
+def index_page(request: Request):
+    return _require_coach_page(request) or FileResponse(BASE_DIR / "templates/index.html")
 
 
 @app.get("/players/{player_id}")
-def player_page(player_id: int):
-    return FileResponse(BASE_DIR / "templates/player.html")
+def player_page(player_id: int, request: Request):
+    return _require_coach_page(request) or FileResponse(BASE_DIR / "templates/player.html")
 
 
 @app.get("/p/{player_id}")
@@ -111,23 +153,23 @@ def my_login_page():
 
 
 @app.get("/attendance")
-def attendance_page():
-    return FileResponse(BASE_DIR / "templates/attendance.html")
+def attendance_page(request: Request):
+    return _require_coach_page(request) or FileResponse(BASE_DIR / "templates/attendance.html")
 
 
 @app.get("/quests")
-def quests_page():
-    return FileResponse(BASE_DIR / "templates/quests.html")
+def quests_page(request: Request):
+    return _require_coach_page(request) or FileResponse(BASE_DIR / "templates/quests.html")
 
 
 @app.get("/drills")
-def drills_page():
-    return FileResponse(BASE_DIR / "templates/drills.html")
+def drills_page(request: Request):
+    return _require_coach_page(request) or FileResponse(BASE_DIR / "templates/drills.html")
 
 
 @app.get("/today")
-def today_page():
-    return FileResponse(BASE_DIR / "templates/today.html")
+def today_page(request: Request):
+    return _require_coach_page(request) or FileResponse(BASE_DIR / "templates/today.html")
 
 
 @app.get("/sw.js")
@@ -136,10 +178,55 @@ def service_worker():
     return FileResponse(BASE_DIR / "static/sw.js", media_type="application/javascript")
 
 
+# ---------- Coach auth API ----------
+
+class CoachLoginIn(BaseModel):
+    pin: str
+
+
+class CoachChangePinIn(BaseModel):
+    current_pin: str
+    new_pin: str
+
+
+@app.post("/api/coach/login")
+def coach_login(payload: CoachLoginIn, request: Request):
+    with get_conn() as conn:
+        stored_hash = get_or_create_setting(conn, "coach_pin_hash", lambda: _hash_pin("1234"))
+    if _hash_pin(payload.pin) != stored_hash:
+        raise HTTPException(401, "Incorrect PIN")
+    request.session["coach"] = True
+    return {"ok": True}
+
+
+@app.post("/api/coach/logout")
+def coach_logout(request: Request):
+    request.session.clear()
+    return {"ok": True}
+
+
+@app.get("/api/coach/session")
+def coach_session_status(request: Request):
+    return {"authenticated": bool(request.session.get("coach"))}
+
+
+@app.post("/api/coach/change-pin")
+def coach_change_pin(payload: CoachChangePinIn, _=Depends(require_coach)):
+    with get_conn() as conn:
+        stored_hash = get_or_create_setting(conn, "coach_pin_hash", lambda: _hash_pin("1234"))
+        if _hash_pin(payload.current_pin) != stored_hash:
+            raise HTTPException(401, "Current PIN is incorrect")
+        new_pin = payload.new_pin.strip()
+        if len(new_pin) < 4:
+            raise HTTPException(400, "New PIN must be at least 4 characters")
+        set_setting(conn, "coach_pin_hash", _hash_pin(new_pin))
+    return {"ok": True}
+
+
 # ---------- Players API ----------
 
 @app.get("/api/players")
-def list_players():
+def list_players(_=Depends(require_coach)):
     with get_conn() as conn:
         rows = conn.query("SELECT * FROM players ORDER BY category, name COLLATE NOCASE")
         all_entries = conn.query("SELECT player_id, entry_date, drill_id, value FROM entries")
@@ -215,7 +302,7 @@ def _unique_access_code(conn, name):
 
 
 @app.post("/api/players")
-def create_player(player: PlayerIn):
+def create_player(player: PlayerIn, _=Depends(require_coach)):
     with get_conn() as conn:
         code = _unique_access_code(conn, player.name.strip())
         cur = conn.exec(
@@ -228,7 +315,7 @@ def create_player(player: PlayerIn):
 
 
 @app.put("/api/players/{player_id}")
-def update_player(player_id: int, player: PlayerIn):
+def update_player(player_id: int, player: PlayerIn, _=Depends(require_coach)):
     with get_conn() as conn:
         conn.exec(
             "UPDATE players SET name=?, category=?, notes=?, level_override=?, class_id=? WHERE id=?",
@@ -250,7 +337,7 @@ def get_player_by_code(code: str):
 
 
 @app.post("/api/players/{player_id}/regenerate-code")
-def regenerate_access_code(player_id: int):
+def regenerate_access_code(player_id: int, _=Depends(require_coach)):
     with get_conn() as conn:
         player = conn.query_one("SELECT id, name FROM players WHERE id=?", (player_id,))
         if not player:
@@ -261,7 +348,7 @@ def regenerate_access_code(player_id: int):
 
 
 @app.delete("/api/players/{player_id}")
-def delete_player(player_id: int):
+def delete_player(player_id: int, _=Depends(require_coach)):
     with get_conn() as conn:
         conn.exec("DELETE FROM players WHERE id=?", (player_id,))
     return {"ok": True}
@@ -270,14 +357,14 @@ def delete_player(player_id: int):
 # ---------- Classes API ----------
 
 @app.get("/api/classes")
-def list_classes():
+def list_classes(_=Depends(require_coach)):
     with get_conn() as conn:
         rows = conn.query("SELECT * FROM classes ORDER BY sort_order, id")
     return rows
 
 
 @app.post("/api/classes")
-def create_class(cls: ClassIn):
+def create_class(cls: ClassIn, _=Depends(require_coach)):
     with get_conn() as conn:
         max_order = conn.query_one("SELECT COALESCE(MAX(sort_order), 0) m FROM classes")["m"]
         cur = conn.exec(
@@ -289,14 +376,14 @@ def create_class(cls: ClassIn):
 
 
 @app.put("/api/classes/{class_id}")
-def update_class(class_id: int, cls: ClassIn):
+def update_class(class_id: int, cls: ClassIn, _=Depends(require_coach)):
     with get_conn() as conn:
         conn.exec("UPDATE classes SET name=? WHERE id=?", (cls.name.strip(), class_id))
     return {"ok": True}
 
 
 @app.delete("/api/classes/{class_id}")
-def delete_class(class_id: int):
+def delete_class(class_id: int, _=Depends(require_coach)):
     with get_conn() as conn:
         conn.exec("UPDATE players SET class_id=NULL WHERE class_id=?", (class_id,))
         conn.exec("DELETE FROM classes WHERE id=?", (class_id,))
@@ -313,7 +400,7 @@ def list_drills():
 
 
 @app.post("/api/drills")
-def create_drill(drill: DrillIn):
+def create_drill(drill: DrillIn, _=Depends(require_coach)):
     with get_conn() as conn:
         max_order = conn.query_one("SELECT COALESCE(MAX(sort_order), 0) m FROM drills")["m"]
         cur = conn.exec(
@@ -325,7 +412,7 @@ def create_drill(drill: DrillIn):
 
 
 @app.put("/api/drills/{drill_id}")
-def update_drill(drill_id: int, drill: DrillIn):
+def update_drill(drill_id: int, drill: DrillIn, _=Depends(require_coach)):
     with get_conn() as conn:
         conn.exec(
             "UPDATE drills SET name=?, description=? WHERE id=?",
@@ -335,14 +422,14 @@ def update_drill(drill_id: int, drill: DrillIn):
 
 
 @app.delete("/api/drills/{drill_id}")
-def delete_drill(drill_id: int):
+def delete_drill(drill_id: int, _=Depends(require_coach)):
     with get_conn() as conn:
         conn.exec("DELETE FROM drills WHERE id=?", (drill_id,))
     return {"ok": True}
 
 
 @app.post("/api/drills/reorder")
-def reorder_drills(payload: DrillReorder):
+def reorder_drills(payload: DrillReorder, _=Depends(require_coach)):
     with get_conn() as conn:
         for idx, drill_id in enumerate(payload.order):
             conn.exec("UPDATE drills SET sort_order=? WHERE id=?", (idx, drill_id))
@@ -357,7 +444,7 @@ def get_daily_drills(drill_date: str):
 
 
 @app.post("/api/daily-drills")
-def set_daily_drill(entry: DailyDrillIn):
+def set_daily_drill(entry: DailyDrillIn, _=Depends(require_coach)):
     with get_conn() as conn:
         drill = conn.query_one("SELECT id FROM drills WHERE id=?", (entry.drill_id,))
         if not drill:
@@ -391,7 +478,7 @@ def get_entries(player_id: int):
 
 
 @app.post("/api/entries")
-def upsert_entry(entry: EntryIn):
+def upsert_entry(entry: EntryIn, _=Depends(require_coach)):
     with get_conn() as conn:
         if entry.value.strip() == "":
             conn.exec(
@@ -412,7 +499,7 @@ def upsert_entry(entry: EntryIn):
 
 
 @app.delete("/api/players/{player_id}/dates/{entry_date}")
-def delete_date_row(player_id: int, entry_date: str):
+def delete_date_row(player_id: int, entry_date: str, _=Depends(require_coach)):
     with get_conn() as conn:
         conn.exec(
             "DELETE FROM entries WHERE player_id=? AND entry_date=?",
@@ -450,7 +537,7 @@ def _clean_quest_type(value):
 
 
 @app.post("/api/quests")
-def create_quest(quest: QuestIn):
+def create_quest(quest: QuestIn, _=Depends(require_coach)):
     with get_conn() as conn:
         class_id, level_index = _resolve_quest_scope(conn, quest)
         max_order = conn.query_one("SELECT COALESCE(MAX(sort_order), 0) m FROM quests")["m"]
@@ -464,7 +551,7 @@ def create_quest(quest: QuestIn):
 
 
 @app.put("/api/quests/{quest_id}")
-def update_quest(quest_id: int, quest: QuestIn):
+def update_quest(quest_id: int, quest: QuestIn, _=Depends(require_coach)):
     with get_conn() as conn:
         class_id, level_index = _resolve_quest_scope(conn, quest)
         conn.exec(
@@ -476,7 +563,7 @@ def update_quest(quest_id: int, quest: QuestIn):
 
 
 @app.delete("/api/quests/{quest_id}")
-def delete_quest(quest_id: int):
+def delete_quest(quest_id: int, _=Depends(require_coach)):
     with get_conn() as conn:
         conn.exec("DELETE FROM quests WHERE id=?", (quest_id,))
     return {"ok": True}
@@ -492,7 +579,7 @@ def get_quest_progress(player_id: int):
 
 
 @app.post("/api/quest-progress")
-def upsert_quest_progress(progress: QuestProgressIn):
+def upsert_quest_progress(progress: QuestProgressIn, _=Depends(require_coach)):
     with get_conn() as conn:
         quest = conn.query_one("SELECT target FROM quests WHERE id=?", (progress.quest_id,))
         if not quest:
@@ -518,7 +605,9 @@ def _parse_class_id(class_id: str | None):
 
 
 @app.get("/api/attendance")
-def get_attendance(attendance_date: str, class_id: str | None = None, attendance_time: str = ""):
+def get_attendance(
+    attendance_date: str, class_id: str | None = None, attendance_time: str = "", _=Depends(require_coach)
+):
     cid = _parse_class_id(class_id)
     with get_conn() as conn:
         rows = conn.query(
@@ -529,7 +618,7 @@ def get_attendance(attendance_date: str, class_id: str | None = None, attendance
 
 
 @app.get("/api/attendance/month")
-def get_attendance_month(month: str, class_id: str | None = None):
+def get_attendance_month(month: str, class_id: str | None = None, _=Depends(require_coach)):
     cid = _parse_class_id(class_id)
     with get_conn() as conn:
         rows = conn.query(
@@ -546,7 +635,7 @@ def get_attendance_month(month: str, class_id: str | None = None):
 
 
 @app.post("/api/attendance")
-def set_attendance(entry: AttendanceIn):
+def set_attendance(entry: AttendanceIn, _=Depends(require_coach)):
     with get_conn() as conn:
         if entry.class_id is not None:
             cls = conn.query_one("SELECT id FROM classes WHERE id=?", (entry.class_id,))
