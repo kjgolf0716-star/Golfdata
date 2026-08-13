@@ -1,4 +1,4 @@
-const CACHE_NAME = "d3golf-v1";
+const CACHE_NAME = "d3golf-v2";
 const PRECACHE_URLS = [
   "/static/style.css",
   "/static/logo.png",
@@ -47,9 +47,11 @@ self.addEventListener("fetch", (event) => {
 
   // Everything else (pages, JS, CSS): network-first, so a new deploy shows up
   // on the very next load instead of getting stuck on a cached version. Cache
-  // is only a fallback for when the phone is offline.
+  // is only a fallback for when the phone is offline. "no-store" forces an
+  // actual network round-trip - without it, fetch() can still be silently
+  // satisfied by the browser's own HTTP cache underneath this handler.
   event.respondWith(
-    fetch(req)
+    fetch(new Request(req, { cache: "no-store" }))
       .then((res) => {
         const clone = res.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));

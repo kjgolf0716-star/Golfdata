@@ -45,6 +45,17 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 
+@app.middleware("http")
+async def no_cache_static(request: Request, call_next):
+    # Static JS/CSS have bitten us before with browsers/PWA holding onto a
+    # stale cached copy after a deploy. Force revalidation (still cheap via
+    # ETag/304) instead of trusting heuristic freshness.
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 def require_coach(request: Request):
     if not request.session.get("coach"):
         raise HTTPException(401, "Not authenticated")
