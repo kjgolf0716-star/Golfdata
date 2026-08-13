@@ -324,6 +324,10 @@ document.getElementById("confirmDateBtn").addEventListener("click", () => {
 // ---------- Edit player ----------
 const editModal = document.getElementById("editPlayerModal");
 document.getElementById("editPlayerBtn").addEventListener("click", () => {
+  if (!player) {
+    alert("Still loading player data - try again in a moment.");
+    return;
+  }
   document.getElementById("editNameInput").value = player.name;
   document.getElementById("editCategoryInput").value = player.category || "";
   document.getElementById("editNotesInput").value = player.notes || "";
