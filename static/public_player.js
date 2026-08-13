@@ -1,5 +1,48 @@
 const playerId = Number(window.location.pathname.split("/").pop());
 
+const AVATAR_BG_CHOICES = ["b6e3f4", "c0aede", "d1d4f9", "ffd5dc", "ffdfbf", "c8e6c9", "fff9c4", "b2ebf2"];
+const AVATAR_BOY_HAIR = Array.from({ length: 19 }, (_, i) => `short${String(i + 1).padStart(2, "0")}`);
+const AVATAR_GIRL_HAIR = Array.from({ length: 26 }, (_, i) => `long${String(i + 1).padStart(2, "0")}`);
+const AVATAR_HAIR_COLORS = [
+  "ac6511", "cb6820", "ab2a18", "e5d7a3", "b9a05f", "796a45", "6a4e35",
+  "562306", "0e0e0e", "afafaf", "3eac2c", "85c2c6", "dba3be", "592454",
+];
+const AVATAR_SKIN_COLORS = ["f2d3b1", "ecad80", "9e5622", "763900"];
+
+let currentAvatarSeed = "";
+let currentAvatarBg = AVATAR_BG_CHOICES[0];
+let currentAvatarHair = null;
+let currentAvatarHairColor = null;
+let currentAvatarSkinColor = null;
+let draftAvatarSeed = "";
+let draftAvatarBg = AVATAR_BG_CHOICES[0];
+let draftAvatarHair = null;
+let draftAvatarHairColor = null;
+let draftAvatarSkinColor = null;
+let draftAvatarGender = null; // "boy" | "girl" | null
+let isFirstTimeAvatar = false;
+
+function avatarUrl(seed, bg, hair, hairColor, skinColor) {
+  let url = `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${bg}`;
+  if (hair) url += `&hair=${hair}`;
+  if (hairColor) url += `&hairColor=${hairColor}`;
+  if (skinColor) url += `&skinColor=${skinColor}`;
+  return url;
+}
+
+function randomSeed() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function randomFrom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function genderOf(hair) {
+  if (!hair) return null;
+  return AVATAR_BOY_HAIR.includes(hair) ? "boy" : AVATAR_GIRL_HAIR.includes(hair) ? "girl" : null;
+}
+
 function todayDateStr() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -41,7 +84,18 @@ async function init() {
 
   document.title = `${player.name}'s Golf Journey · D3 Golf Center`;
 
+  isFirstTimeAvatar = !player.avatar_seed;
+  currentAvatarSeed = player.avatar_seed || player.name;
+  currentAvatarBg = AVATAR_BG_CHOICES.includes(player.avatar_bg) ? player.avatar_bg : AVATAR_BG_CHOICES[0];
+  currentAvatarHair = AVATAR_BOY_HAIR.includes(player.avatar_hair) || AVATAR_GIRL_HAIR.includes(player.avatar_hair)
+    ? player.avatar_hair
+    : null;
+  currentAvatarHairColor = AVATAR_HAIR_COLORS.includes(player.avatar_hair_color) ? player.avatar_hair_color : null;
+  currentAvatarSkinColor = AVATAR_SKIN_COLORS.includes(player.avatar_skin_color) ? player.avatar_skin_color : null;
+
   card.innerHTML = `
+    ${publicAvatarHtml()}
+
     <div class="public-name">${escapeHtml(player.name)}</div>
     <div class="public-level-badge">
       <div class="public-level-icon">${stats.level_icon}</div>
@@ -68,6 +122,147 @@ async function init() {
       ${publicBadgeGridHtml(stats.badges)}
     </div>
   `;
+
+  wireAvatarPicker();
+  if (isFirstTimeAvatar) openAvatarPicker();
+}
+
+function draftAvatarUrl() {
+  return avatarUrl(draftAvatarSeed, draftAvatarBg, draftAvatarHair, draftAvatarHairColor, draftAvatarSkinColor);
+}
+
+function swatchRowHtml(label, kind, choices) {
+  return `
+    <div class="public-avatar-swatch-group">
+      <div class="public-avatar-swatch-label">${label}</div>
+      <div class="public-avatar-swatches">
+        ${choices
+          .map((c) => `<button type="button" class="public-avatar-swatch" data-kind="${kind}" data-value="${c}" style="background:#${c}"></button>`)
+          .join("")}
+      </div>
+    </div>`;
+}
+
+function publicAvatarHtml() {
+  return `
+    <div class="public-avatar-wrap">
+      <img id="avatarImg" class="public-avatar-img" src="${avatarUrl(currentAvatarSeed, currentAvatarBg, currentAvatarHair, currentAvatarHairColor, currentAvatarSkinColor)}" alt="Your avatar" />
+      <button type="button" id="customizeAvatarBtn" class="public-avatar-edit-btn">\u{1F3A8} Customize Avatar</button>
+    </div>
+    <div id="avatarPicker" class="public-avatar-picker hidden">
+      <div id="avatarPickerTitle" class="public-avatar-picker-title hidden">\u{1F389} Welcome! Create your avatar</div>
+      <img id="avatarPreview" class="public-avatar-preview" src="${avatarUrl(currentAvatarSeed, currentAvatarBg, currentAvatarHair, currentAvatarHairColor, currentAvatarSkinColor)}" alt="Avatar preview" />
+      <div class="public-avatar-gender">
+        <button type="button" class="public-avatar-gender-btn" data-gender="boy">\u{1F466} Boy</button>
+        <button type="button" class="public-avatar-gender-btn" data-gender="girl">\u{1F467} Girl</button>
+        <button type="button" id="shuffleHairBtn" class="btn-secondary">\u{1F487} Hairstyle</button>
+      </div>
+      ${swatchRowHtml("Hair Color", "hairColor", AVATAR_HAIR_COLORS)}
+      ${swatchRowHtml("Skin Color", "skinColor", AVATAR_SKIN_COLORS)}
+      ${swatchRowHtml("Background", "bg", AVATAR_BG_CHOICES)}
+      <div class="public-avatar-actions">
+        <button type="button" id="shuffleAvatarBtn" class="btn-secondary">\u{1F3B2} Shuffle Face</button>
+        <button type="button" id="saveAvatarBtn" class="btn-primary">Save Avatar</button>
+        <button type="button" id="cancelAvatarBtn" class="btn-secondary">Cancel</button>
+      </div>
+    </div>`;
+}
+
+function updateAvatarPickerSelection() {
+  document.querySelectorAll(".public-avatar-swatch").forEach((btn) => {
+    const draftValue = { bg: draftAvatarBg, hairColor: draftAvatarHairColor, skinColor: draftAvatarSkinColor }[btn.dataset.kind];
+    btn.classList.toggle("selected", btn.dataset.value === draftValue);
+  });
+  document.querySelectorAll(".public-avatar-gender-btn").forEach((btn) => {
+    btn.classList.toggle("selected", btn.dataset.gender === draftAvatarGender);
+  });
+}
+
+function openAvatarPicker() {
+  const picker = document.getElementById("avatarPicker");
+  const preview = document.getElementById("avatarPreview");
+  draftAvatarSeed = currentAvatarSeed;
+  draftAvatarBg = currentAvatarBg;
+  draftAvatarHair = currentAvatarHair;
+  draftAvatarHairColor = currentAvatarHairColor;
+  draftAvatarSkinColor = currentAvatarSkinColor;
+  draftAvatarGender = genderOf(currentAvatarHair);
+  preview.src = draftAvatarUrl();
+  updateAvatarPickerSelection();
+  document.getElementById("avatarPickerTitle").classList.toggle("hidden", !isFirstTimeAvatar);
+  document.getElementById("cancelAvatarBtn").classList.toggle("hidden", isFirstTimeAvatar);
+  picker.classList.remove("hidden");
+}
+
+function wireAvatarPicker() {
+  const picker = document.getElementById("avatarPicker");
+  const preview = document.getElementById("avatarPreview");
+
+  document.getElementById("customizeAvatarBtn").addEventListener("click", openAvatarPicker);
+
+  document.getElementById("cancelAvatarBtn").addEventListener("click", () => {
+    picker.classList.add("hidden");
+  });
+
+  document.getElementById("shuffleAvatarBtn").addEventListener("click", () => {
+    draftAvatarSeed = randomSeed();
+    preview.src = draftAvatarUrl();
+  });
+
+  document.getElementById("shuffleHairBtn").addEventListener("click", () => {
+    const pool = draftAvatarGender === "girl" ? AVATAR_GIRL_HAIR : draftAvatarGender === "boy" ? AVATAR_BOY_HAIR : AVATAR_BOY_HAIR.concat(AVATAR_GIRL_HAIR);
+    draftAvatarHair = randomFrom(pool);
+    draftAvatarGender = genderOf(draftAvatarHair);
+    preview.src = draftAvatarUrl();
+    updateAvatarPickerSelection();
+  });
+
+  document.querySelectorAll(".public-avatar-gender-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      draftAvatarGender = btn.dataset.gender;
+      draftAvatarHair = randomFrom(draftAvatarGender === "boy" ? AVATAR_BOY_HAIR : AVATAR_GIRL_HAIR);
+      preview.src = draftAvatarUrl();
+      updateAvatarPickerSelection();
+    });
+  });
+
+  document.querySelectorAll(".public-avatar-swatch").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.kind === "bg") draftAvatarBg = btn.dataset.value;
+      else if (btn.dataset.kind === "hairColor") draftAvatarHairColor = btn.dataset.value;
+      else if (btn.dataset.kind === "skinColor") draftAvatarSkinColor = btn.dataset.value;
+      preview.src = draftAvatarUrl();
+      updateAvatarPickerSelection();
+    });
+  });
+
+  document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
+    const res = await fetch(`/api/players/${playerId}/avatar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        seed: draftAvatarSeed,
+        bg: draftAvatarBg,
+        hair: draftAvatarHair,
+        hair_color: draftAvatarHairColor,
+        skin_color: draftAvatarSkinColor,
+      }),
+    });
+    if (!res.ok) {
+      alert("Could not save avatar - try again.");
+      return;
+    }
+    currentAvatarSeed = draftAvatarSeed;
+    currentAvatarBg = draftAvatarBg;
+    currentAvatarHair = draftAvatarHair;
+    currentAvatarHairColor = draftAvatarHairColor;
+    currentAvatarSkinColor = draftAvatarSkinColor;
+    isFirstTimeAvatar = false;
+    document.getElementById("avatarImg").src = avatarUrl(
+      currentAvatarSeed, currentAvatarBg, currentAvatarHair, currentAvatarHairColor, currentAvatarSkinColor
+    );
+    picker.classList.add("hidden");
+  });
 }
 
 function computeTrainingSummary(entries, drills) {

@@ -122,6 +122,16 @@ def init_db():
         conn.exec("ALTER TABLE players ADD COLUMN class_id INTEGER")
     if "access_code" not in player_cols:
         conn.exec("ALTER TABLE players ADD COLUMN access_code TEXT")
+    if "avatar_seed" not in player_cols:
+        conn.exec("ALTER TABLE players ADD COLUMN avatar_seed TEXT")
+    if "avatar_bg" not in player_cols:
+        conn.exec("ALTER TABLE players ADD COLUMN avatar_bg TEXT")
+    if "avatar_hair" not in player_cols:
+        conn.exec("ALTER TABLE players ADD COLUMN avatar_hair TEXT")
+    if "avatar_hair_color" not in player_cols:
+        conn.exec("ALTER TABLE players ADD COLUMN avatar_hair_color TEXT")
+    if "avatar_skin_color" not in player_cols:
+        conn.exec("ALTER TABLE players ADD COLUMN avatar_skin_color TEXT")
     conn.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_players_access_code ON players(access_code)")
 
     # Give every player a readable "FirstName_LastName" login code. Runs

@@ -1177,6 +1177,114 @@ table.log-table th.actions-col { min-width: 40px; }
   margin-bottom: 18px;
 }
 
+.public-avatar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.public-avatar-img {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 3px solid var(--green-500);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+  background: #fff;
+}
+.public-avatar-edit-btn {
+  background: none;
+  border: none;
+  color: var(--green-700);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.public-avatar-edit-btn:hover {
+  background: rgba(47, 158, 86, 0.1);
+}
+.public-avatar-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: #f6faf7;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+.public-avatar-preview {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 3px solid var(--green-500);
+  background: #fff;
+}
+.public-avatar-picker-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--green-900);
+  text-align: center;
+}
+.public-avatar-gender {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.public-avatar-swatch-group {
+  width: 100%;
+}
+.public-avatar-swatch-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+.public-avatar-gender-btn {
+  background: #fff;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green-700);
+  cursor: pointer;
+}
+.public-avatar-gender-btn.selected {
+  border-color: var(--green-500);
+  background: rgba(47, 158, 86, 0.12);
+}
+.public-avatar-swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.public-avatar-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.public-avatar-swatch.selected {
+  border-color: var(--green-900);
+}
+.public-avatar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .public-level-badge {
   display: flex;
   flex-direction: column;

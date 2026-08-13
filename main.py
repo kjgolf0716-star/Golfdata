@@ -126,6 +126,14 @@ class QuestProgressIn(BaseModel):
     current: int = 0
 
 
+class AvatarIn(BaseModel):
+    seed: str
+    bg: str
+    hair: str | None = None
+    hair_color: str | None = None
+    skin_color: str | None = None
+
+
 class AttendanceIn(BaseModel):
     class_id: int | None = None
     attendance_date: str
@@ -303,6 +311,53 @@ def get_player_stats(player_id: int):
         num_drills = conn.query_one("SELECT COUNT(*) c FROM drills")["c"]
     level_override = player_row["level_override"] if player_row else None
     return gamify.compute_player_stats(entries, num_drills, level_override)
+
+
+AVATAR_BG_CHOICES = {
+    "b6e3f4", "c0aede", "d1d4f9", "ffd5dc", "ffdfbf", "c8e6c9", "fff9c4", "b2ebf2",
+}
+# DiceBear's "adventurer" style has no gender field, but its short-hair vs
+# long-hair sets double as a boy/girl toggle well enough for this purpose.
+AVATAR_BOY_HAIR = {f"short{i:02d}" for i in range(1, 20)}
+AVATAR_GIRL_HAIR = {f"long{i:02d}" for i in range(1, 27)}
+AVATAR_HAIR_CHOICES = AVATAR_BOY_HAIR | AVATAR_GIRL_HAIR
+# DiceBear "adventurer" style defaults - see https://api.dicebear.com/9.x/adventurer/schema.json
+AVATAR_HAIR_COLOR_CHOICES = {
+    "ac6511", "cb6820", "ab2a18", "e5d7a3", "b9a05f", "796a45", "6a4e35",
+    "562306", "0e0e0e", "afafaf", "3eac2c", "85c2c6", "dba3be", "592454",
+}
+AVATAR_SKIN_COLOR_CHOICES = {"f2d3b1", "ecad80", "9e5622", "763900"}
+
+
+@app.post("/api/players/{player_id}/avatar")
+def set_avatar(player_id: int, avatar: AvatarIn):
+    # No coach auth: this is the one thing juniors can write themselves, from
+    # their own read-only /p/{id} page. Low stakes (cosmetic only), so it's
+    # deliberately left open like the rest of the public profile endpoints.
+    bg = avatar.bg.strip().lower()
+    if bg not in AVATAR_BG_CHOICES:
+        raise HTTPException(400, "Invalid background color")
+    seed = avatar.seed.strip()[:60]
+    if not seed:
+        raise HTTPException(400, "Missing seed")
+    hair = avatar.hair.strip() if avatar.hair else None
+    if hair and hair not in AVATAR_HAIR_CHOICES:
+        raise HTTPException(400, "Invalid hair style")
+    hair_color = avatar.hair_color.strip().lower() if avatar.hair_color else None
+    if hair_color and hair_color not in AVATAR_HAIR_COLOR_CHOICES:
+        raise HTTPException(400, "Invalid hair color")
+    skin_color = avatar.skin_color.strip().lower() if avatar.skin_color else None
+    if skin_color and skin_color not in AVATAR_SKIN_COLOR_CHOICES:
+        raise HTTPException(400, "Invalid skin color")
+    with get_conn() as conn:
+        player = conn.query_one("SELECT id FROM players WHERE id=?", (player_id,))
+        if not player:
+            raise HTTPException(404, "Player not found")
+        conn.exec(
+            "UPDATE players SET avatar_seed=?, avatar_bg=?, avatar_hair=?, avatar_hair_color=?, avatar_skin_color=? WHERE id=?",
+            (seed, bg, hair, hair_color, skin_color, player_id),
+        )
+    return {"ok": True, "seed": seed, "bg": bg, "hair": hair, "hair_color": hair_color, "skin_color": skin_color}
 
 
 def _unique_access_code(conn, name):
