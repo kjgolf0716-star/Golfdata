@@ -1,0 +1,16 @@
+{
+  "name": "D3 Golf Center - My Golf Journey",
+  "short_name": "My Golf Journey",
+  "description": "Track your level, quests, and achievements at D3 Golf Center.",
+  "start_url": "/my",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b3d24",
+  "theme_color": "#0b3d24",
+  "icons": [
+    { "src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/static/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

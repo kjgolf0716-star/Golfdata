@@ -130,6 +130,12 @@ def today_page():
     return FileResponse(BASE_DIR / "templates/today.html")
 
 
+@app.get("/sw.js")
+def service_worker():
+    # Served from the root (not /static/) so its scope covers the whole app.
+    return FileResponse(BASE_DIR / "static/sw.js", media_type="application/javascript")
+
+
 # ---------- Players API ----------
 
 @app.get("/api/players")
