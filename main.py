@@ -51,7 +51,7 @@ async def no_cache_static(request: Request, call_next):
     # stale cached copy after a deploy. Force revalidation (still cheap via
     # ETag/304) instead of trusting heuristic freshness.
     response = await call_next(request)
-    if request.url.path.startswith("/static/"):
+    if request.url.path.startswith("/static/") or request.url.path == "/sw.js":
         response.headers["Cache-Control"] = "no-cache"
     return response
 

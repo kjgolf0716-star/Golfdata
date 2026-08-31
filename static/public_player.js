@@ -237,17 +237,23 @@ function wireAvatarPicker() {
   });
 
   document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
-    const res = await fetch(`/api/players/${playerId}/avatar`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        seed: draftAvatarSeed,
-        bg: draftAvatarBg,
-        hair: draftAvatarHair,
-        hair_color: draftAvatarHairColor,
-        skin_color: draftAvatarSkinColor,
-      }),
-    });
+    let res;
+    try {
+      res = await fetch(`/api/players/${playerId}/avatar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          seed: draftAvatarSeed,
+          bg: draftAvatarBg,
+          hair: draftAvatarHair,
+          hair_color: draftAvatarHairColor,
+          skin_color: draftAvatarSkinColor,
+        }),
+      });
+    } catch {
+      alert("Could not save avatar - check your connection and try again.");
+      return;
+    }
     if (!res.ok) {
       alert("Could not save avatar - try again.");
       return;
