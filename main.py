@@ -68,6 +68,20 @@ def _require_coach_page(request: Request):
     return None
 
 
+def _session_club(request: Request) -> int:
+    """The club the coach currently has selected (defaults to D3, club 1)."""
+    try:
+        return int(request.session.get("club_id") or 1)
+    except (TypeError, ValueError):
+        return 1
+
+
+def _resolve_club(request: Request, club_id: int | None) -> int:
+    """Public junior pages pass their player's club explicitly; coach pages
+    rely on the club stored in the session."""
+    return club_id if club_id else _session_club(request)
+
+
 def _clean_level_override(value):
     if value is None or not (0 <= value < len(gamify.LEVELS)):
         return None
@@ -242,15 +256,41 @@ def coach_change_pin(payload: CoachChangePinIn, _=Depends(require_coach)):
     return {"ok": True}
 
 
+# ---------- Clubs API ----------
+
+class ClubSelectIn(BaseModel):
+    club_id: int
+
+
+@app.get("/api/clubs")
+def list_clubs(request: Request, _=Depends(require_coach)):
+    with get_conn() as conn:
+        rows = conn.query("SELECT id, name FROM clubs ORDER BY id")
+    return {"clubs": rows, "current": _session_club(request)}
+
+
+@app.post("/api/coach/club")
+def select_club(payload: ClubSelectIn, request: Request, _=Depends(require_coach)):
+    with get_conn() as conn:
+        club = conn.query_one("SELECT id FROM clubs WHERE id=?", (payload.club_id,))
+    if not club:
+        raise HTTPException(404, "Club not found")
+    request.session["club_id"] = payload.club_id
+    return {"ok": True}
+
+
 # ---------- Players API ----------
 
 @app.get("/api/players")
-def list_players(_=Depends(require_coach)):
+def list_players(request: Request, _=Depends(require_coach)):
+    club_id = _session_club(request)
     with get_conn() as conn:
-        rows = conn.query("SELECT * FROM players ORDER BY category, name COLLATE NOCASE")
+        rows = conn.query(
+            "SELECT * FROM players WHERE club_id=? ORDER BY category, name COLLATE NOCASE", (club_id,)
+        )
         all_entries = conn.query("SELECT player_id, entry_date, drill_id, value FROM entries")
-        num_drills = conn.query_one("SELECT COUNT(*) c FROM drills")["c"]
-        all_quests = conn.query("SELECT id, target, level_index FROM quests")
+        num_drills = conn.query_one("SELECT COUNT(*) c FROM drills WHERE club_id=?", (club_id,))["c"]
+        all_quests = conn.query("SELECT id, target, level_index FROM quests WHERE club_id=?", (club_id,))
         all_progress = conn.query("SELECT player_id, quest_id, current FROM quest_progress")
 
     by_player = {}
@@ -304,11 +344,12 @@ def get_player(player_id: int):
 @app.get("/api/players/{player_id}/stats")
 def get_player_stats(player_id: int):
     with get_conn() as conn:
-        player_row = conn.query_one("SELECT level_override FROM players WHERE id=?", (player_id,))
+        player_row = conn.query_one("SELECT level_override, club_id FROM players WHERE id=?", (player_id,))
         entries = conn.query(
             "SELECT entry_date, drill_id, value FROM entries WHERE player_id=?", (player_id,)
         )
-        num_drills = conn.query_one("SELECT COUNT(*) c FROM drills")["c"]
+        player_club = player_row["club_id"] if player_row else 1
+        num_drills = conn.query_one("SELECT COUNT(*) c FROM drills WHERE club_id=?", (player_club,))["c"]
     level_override = player_row["level_override"] if player_row else None
     return gamify.compute_player_stats(entries, num_drills, level_override)
 
@@ -368,13 +409,13 @@ def _unique_access_code(conn, name):
 
 
 @app.post("/api/players")
-def create_player(player: PlayerIn, _=Depends(require_coach)):
+def create_player(player: PlayerIn, request: Request, _=Depends(require_coach)):
     with get_conn() as conn:
         code = _unique_access_code(conn, player.name.strip())
         cur = conn.exec(
-            "INSERT INTO players (name, category, notes, level_override, class_id, access_code) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO players (name, category, notes, level_override, class_id, access_code, club_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (player.name.strip(), player.category.strip(), player.notes.strip(),
-             _clean_level_override(player.level_override), player.class_id, code),
+             _clean_level_override(player.level_override), player.class_id, code, _session_club(request)),
         )
         new_id = cur.lastrowid
     return {"id": new_id}
@@ -423,19 +464,21 @@ def delete_player(player_id: int, _=Depends(require_coach)):
 # ---------- Classes API ----------
 
 @app.get("/api/classes")
-def list_classes(_=Depends(require_coach)):
+def list_classes(request: Request, _=Depends(require_coach)):
     with get_conn() as conn:
-        rows = conn.query("SELECT * FROM classes ORDER BY sort_order, id")
+        rows = conn.query(
+            "SELECT * FROM classes WHERE club_id=? ORDER BY sort_order, id", (_session_club(request),)
+        )
     return rows
 
 
 @app.post("/api/classes")
-def create_class(cls: ClassIn, _=Depends(require_coach)):
+def create_class(cls: ClassIn, request: Request, _=Depends(require_coach)):
     with get_conn() as conn:
         max_order = conn.query_one("SELECT COALESCE(MAX(sort_order), 0) m FROM classes")["m"]
         cur = conn.exec(
-            "INSERT INTO classes (name, sort_order) VALUES (?, ?)",
-            (cls.name.strip(), max_order + 1),
+            "INSERT INTO classes (name, sort_order, club_id) VALUES (?, ?, ?)",
+            (cls.name.strip(), max_order + 1, _session_club(request)),
         )
         new_id = cur.lastrowid
     return {"id": new_id}
@@ -459,19 +502,21 @@ def delete_class(class_id: int, _=Depends(require_coach)):
 # ---------- Drills API ----------
 
 @app.get("/api/drills")
-def list_drills():
+def list_drills(request: Request, club_id: int | None = None):
     with get_conn() as conn:
-        rows = conn.query("SELECT * FROM drills ORDER BY sort_order, id")
+        rows = conn.query(
+            "SELECT * FROM drills WHERE club_id=? ORDER BY sort_order, id", (_resolve_club(request, club_id),)
+        )
     return rows
 
 
 @app.post("/api/drills")
-def create_drill(drill: DrillIn, _=Depends(require_coach)):
+def create_drill(drill: DrillIn, request: Request, _=Depends(require_coach)):
     with get_conn() as conn:
         max_order = conn.query_one("SELECT COALESCE(MAX(sort_order), 0) m FROM drills")["m"]
         cur = conn.exec(
-            "INSERT INTO drills (name, description, sort_order) VALUES (?, ?, ?)",
-            (drill.name.strip(), drill.description.strip(), max_order + 1),
+            "INSERT INTO drills (name, description, sort_order, club_id) VALUES (?, ?, ?, ?)",
+            (drill.name.strip(), drill.description.strip(), max_order + 1, _session_club(request)),
         )
         new_id = cur.lastrowid
     return {"id": new_id}
@@ -503,9 +548,13 @@ def reorder_drills(payload: DrillReorder, _=Depends(require_coach)):
 
 
 @app.get("/api/daily-drills")
-def get_daily_drills(drill_date: str):
+def get_daily_drills(drill_date: str, request: Request, club_id: int | None = None):
     with get_conn() as conn:
-        rows = conn.query("SELECT drill_id FROM daily_drills WHERE drill_date=?", (drill_date,))
+        rows = conn.query(
+            "SELECT dd.drill_id FROM daily_drills dd JOIN drills d ON d.id = dd.drill_id "
+            "WHERE dd.drill_date=? AND d.club_id=?",
+            (drill_date, _resolve_club(request, club_id)),
+        )
     return [r["drill_id"] for r in rows]
 
 
@@ -577,9 +626,11 @@ def delete_date_row(player_id: int, entry_date: str, _=Depends(require_coach)):
 # ---------- Custom Quests API ----------
 
 @app.get("/api/quests")
-def list_quests():
+def list_quests(request: Request, club_id: int | None = None):
     with get_conn() as conn:
-        rows = conn.query("SELECT * FROM quests ORDER BY sort_order, id")
+        rows = conn.query(
+            "SELECT * FROM quests WHERE club_id=? ORDER BY sort_order, id", (_resolve_club(request, club_id),)
+        )
     return rows
 
 
@@ -603,14 +654,15 @@ def _clean_quest_type(value):
 
 
 @app.post("/api/quests")
-def create_quest(quest: QuestIn, _=Depends(require_coach)):
+def create_quest(quest: QuestIn, request: Request, _=Depends(require_coach)):
     with get_conn() as conn:
         class_id, level_index = _resolve_quest_scope(conn, quest)
         max_order = conn.query_one("SELECT COALESCE(MAX(sort_order), 0) m FROM quests")["m"]
         cur = conn.exec(
-            "INSERT INTO quests (name, icon, description, target, class_id, level_index, quest_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO quests (name, icon, description, target, class_id, level_index, quest_type, sort_order, club_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (quest.name.strip(), quest.icon.strip() or "🎯", quest.description.strip(),
-             max(1, quest.target), class_id, level_index, _clean_quest_type(quest.quest_type), max_order + 1),
+             max(1, quest.target), class_id, level_index, _clean_quest_type(quest.quest_type), max_order + 1,
+             _session_club(request)),
         )
         new_id = cur.lastrowid
     return {"id": new_id}
@@ -684,7 +736,9 @@ def get_attendance(
 
 
 @app.get("/api/attendance/month")
-def get_attendance_month(month: str, class_id: str | None = None, _=Depends(require_coach)):
+def get_attendance_month(
+    month: str, request: Request, class_id: str | None = None, _=Depends(require_coach)
+):
     cid = _parse_class_id(class_id)
     with get_conn() as conn:
         rows = conn.query(
@@ -692,10 +746,10 @@ def get_attendance_month(month: str, class_id: str | None = None, _=Depends(requ
             SELECT a.attendance_date, a.attendance_time, a.player_id, p.name AS player_name
             FROM attendance a
             JOIN players p ON p.id = a.player_id
-            WHERE a.class_id IS ? AND a.attendance_date LIKE ?
+            WHERE a.class_id IS ? AND a.attendance_date LIKE ? AND p.club_id = ?
             ORDER BY a.attendance_date, a.attendance_time, p.name COLLATE NOCASE
             """,
-            (cid, f"{month}%"),
+            (cid, f"{month}%", _session_club(request)),
         )
     return rows
 

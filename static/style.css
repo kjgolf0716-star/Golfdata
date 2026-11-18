@@ -1530,3 +1530,32 @@ table.log-table th.actions-col { min-width: 40px; }
 .public-switch-link:hover {
   color: #fff;
 }
+
+.club-select {
+  background: rgba(255,255,255,0.12);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 5px 12px;
+  margin-right: 8px;
+  cursor: pointer;
+}
+.club-select option {
+  color: #1c2321;
+}
+
+.topnav {
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.topnav-link {
+  white-space: nowrap;
+}
+.club-select {
+  max-width: 190px;
+  text-overflow: ellipsis;
+}

@@ -52,3 +52,47 @@ if (changePinBtn) {
     newInput.value = "";
   });
 }
+
+// Club switcher: lets one coach login manage several clubs. The selected club
+// is remembered server-side (session), so every page just shows that club's data.
+(async function initClubSwitcher() {
+  const nav = document.querySelector(".topnav");
+  if (!nav) return;
+  let data;
+  try {
+    const res = await fetch("/api/clubs");
+    if (!res.ok) return;
+    data = await res.json();
+  } catch (e) {
+    return;
+  }
+  const { clubs, current } = data;
+  if (!clubs || clubs.length < 2) return;
+
+  const select = document.createElement("select");
+  select.className = "club-select";
+  select.setAttribute("aria-label", "Club");
+  clubs.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.name;
+    if (c.id === current) opt.selected = true;
+    select.appendChild(opt);
+  });
+  select.addEventListener("change", async () => {
+    await fetch("/api/coach/club", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ club_id: Number(select.value) }),
+    });
+    window.location.href = "/";
+  });
+  nav.insertBefore(select, nav.firstChild);
+
+  // The logo is D3's; other clubs get their name in its place.
+  const club = clubs.find((c) => c.id === current);
+  const brand = document.querySelector("header.topbar .brand");
+  if (club && club.id !== 1 && brand) {
+    brand.textContent = club.name;
+  }
+})();

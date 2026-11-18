@@ -278,6 +278,23 @@ def init_db():
         """
     )
 
+    # Multi-club support: every pre-existing row belongs to club 1 (D3 Golf
+    # Center) via the column default, so nothing already stored changes.
+    conn.exec(
+        """
+        CREATE TABLE IF NOT EXISTS clubs (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL
+        )
+        """
+    )
+    conn.exec("INSERT OR IGNORE INTO clubs (id, name) VALUES (1, 'D3 Golf Center')")
+    conn.exec("INSERT OR IGNORE INTO clubs (id, name) VALUES (2, 'Sembawang Country Club')")
+    for table in ("players", "drills", "classes", "quests"):
+        cols = {row["name"] for row in conn.query(f"PRAGMA table_info({table})")}
+        if "club_id" not in cols:
+            conn.exec(f"ALTER TABLE {table} ADD COLUMN club_id INTEGER NOT NULL DEFAULT 1")
+
     count = conn.query_one("SELECT COUNT(*) c FROM drills")["c"]
     if count == 0:
         default_drills = [

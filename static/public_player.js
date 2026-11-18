@@ -49,14 +49,16 @@ function todayDateStr() {
 
 async function init() {
   const card = document.getElementById("publicCard");
-  const [pRes, sRes, qRes, qpRes, dRes, eRes, ddRes] = await Promise.all([
-    fetch(`/api/players/${playerId}`),
+  // Drills and quests are per club, so find the player's club first.
+  const pRes = await fetch(`/api/players/${playerId}`);
+  const clubParam = pRes.ok ? `club_id=${(await pRes.clone().json()).club_id}` : "";
+  const [sRes, qRes, qpRes, dRes, eRes, ddRes] = await Promise.all([
     fetch(`/api/players/${playerId}/stats`),
-    fetch(`/api/quests`),
+    fetch(`/api/quests?${clubParam}`),
     fetch(`/api/players/${playerId}/quest-progress`),
-    fetch(`/api/drills`),
+    fetch(`/api/drills?${clubParam}`),
     fetch(`/api/players/${playerId}/entries`),
-    fetch(`/api/daily-drills?drill_date=${todayDateStr()}`),
+    fetch(`/api/daily-drills?drill_date=${todayDateStr()}&${clubParam}`),
   ]);
 
   if (!pRes.ok) {
