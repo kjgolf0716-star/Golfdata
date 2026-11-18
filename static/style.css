@@ -1559,3 +1559,9 @@ table.log-table th.actions-col { min-width: 40px; }
   max-width: 190px;
   text-overflow: ellipsis;
 }
+
+/* Let the coach select the code by hand as well as click-to-copy. */
+.access-code-chip {
+  user-select: all;
+  -webkit-user-select: all;
+}

@@ -141,17 +141,40 @@ function renderHeader() {
   document.getElementById("accessCodeChip").textContent = player.access_code || "------";
 }
 
+// The Clipboard API is blocked in some browsers/contexts, so fall back to the
+// old execCommand route instead of silently failing.
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
+    ta.remove();
+    return ok;
+  }
+}
+
 document.getElementById("accessCodeChip").addEventListener("click", async () => {
   if (!player || !player.access_code) return;
-  try {
-    await navigator.clipboard.writeText(player.access_code);
-  } catch {
-    // clipboard API unavailable - selection still visible on the chip
-  }
+  const ok = await copyText(player.access_code);
   const copied = document.getElementById("accessCodeCopied");
+  copied.textContent = ok ? "Copied!" : "Couldn't copy - select the code and copy it manually";
   copied.classList.remove("hidden");
   clearTimeout(copied._t);
-  copied._t = setTimeout(() => copied.classList.add("hidden"), 1500);
+  copied._t = setTimeout(() => copied.classList.add("hidden"), ok ? 1500 : 4000);
 });
 
 document.getElementById("regenerateCodeBtn").addEventListener("click", async () => {
