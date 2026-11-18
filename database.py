@@ -289,7 +289,9 @@ def init_db():
         """
     )
     conn.exec("INSERT OR IGNORE INTO clubs (id, name) VALUES (1, 'D3 Golf Center')")
-    conn.exec("INSERT OR IGNORE INTO clubs (id, name) VALUES (2, 'Sembawang Country Club')")
+    conn.exec("INSERT OR IGNORE INTO clubs (id, name) VALUES (2, 'SCC Junior')")
+    # Existing databases were seeded with the old display name.
+    conn.exec("UPDATE clubs SET name='SCC Junior' WHERE id=2 AND name='Sembawang Country Club'")
     # Clubs can opt out of the gamified experience (levels, XP, streaks,
     # quests, badges). Sembawang tracks drill results only.
     club_cols = {row["name"] for row in conn.query("PRAGMA table_info(clubs)")}

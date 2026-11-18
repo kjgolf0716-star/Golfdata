@@ -1,13 +1,22 @@
 let allPlayers = [];
 let allClasses = [];
+let clubGamified = null;
 
 async function loadAll() {
-  const [pRes, cRes] = await Promise.all([
+  const [pRes, cRes, clubRes] = await Promise.all([
     fetch("/api/players"),
     fetch("/api/classes"),
+    fetch("/api/clubs").catch(() => null),
   ]);
   allPlayers = await pRes.json();
   allClasses = await cRes.json();
+  if (clubRes && clubRes.ok) {
+    try {
+      clubGamified = (await clubRes.json()).gamified;
+    } catch (e) {
+      clubGamified = null;
+    }
+  }
   renderClassFilter();
   renderHallOfFame();
   renderPlayers();
@@ -15,30 +24,61 @@ async function loadAll() {
 
 // Basic-tracking clubs (e.g. Sembawang) skip levels, streaks and the Hall of Fame.
 function isBasicClub() {
+  if (clubGamified === false) return true;
+  if (clubGamified === true) return false;
   return allPlayers.length > 0 && allPlayers[0].gamified === false;
 }
 
+function formatLastSession(dateStr) {
+  if (!dateStr) return "No sessions yet";
+  const d = new Date(dateStr + "T00:00:00");
+  if (isNaN(d)) return `Last session ${escapeHtml(dateStr)}`;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((today - d) / 86400000);
+  const label = d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  if (days <= 0) return "Last session today";
+  if (days === 1) return "Last session yesterday";
+  if (days < 7) return `Last session ${days} days ago`;
+  return `Last session ${label}`;
+}
+
+function basicCardHtml(p) {
+  const chips = [];
+  if (p.category) chips.push(`<span class="basic-chip">${escapeHtml(p.category)}</span>`);
+  if (p.session_count) chips.push(`<span class="basic-chip basic-chip-muted">${p.session_count} session${p.session_count === 1 ? "" : "s"}</span>`);
+  return `
+    <a class="player-card" href="/players/${p.id}">
+      <div class="name">${escapeHtml(p.name)}</div>
+      ${chips.length ? `<div class="basic-chips">${chips.join("")}</div>` : ""}
+      <div class="meta">${formatLastSession(p.last_entry_date)}</div>
+      ${p.notes ? `<div class="meta basic-notes">${escapeHtml(truncate(p.notes, 60))}</div>` : ""}
+    </a>`;
+}
+
+// Sembawang list: grouped by class (in the coach's class order), "No Class" last.
 function renderBasicPlayers(base, filtered, query) {
   const container = document.getElementById("playerList");
   if (query && filtered.length === 0) {
     container.innerHTML = `<div class="empty-state">No results found.</div>`;
     return;
   }
-  const cards = [...filtered]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(
-      (p) => `
-        <a class="player-card" href="/players/${p.id}">
-          <div class="name">${escapeHtml(p.name)}</div>
-          <div class="meta">${p.notes ? escapeHtml(truncate(p.notes, 60)) : "View training log &rarr;"}</div>
-        </a>`
-    )
-    .join("");
-  container.innerHTML = `
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  const block = (title, group) => `
     <div class="category-block">
-      <div class="category-title">Players <span class="category-count">${filtered.length}</span></div>
-      <div class="player-grid">${cards}</div>
+      <div class="category-title">${escapeHtml(title)} <span class="category-count">${group.length}</span></div>
+      <div class="player-grid">${[...group].sort(byName).map(basicCardHtml).join("")}</div>
     </div>`;
+
+  const classIds = new Set(allClasses.map((c) => c.id));
+  const groups = allClasses
+    .map((c) => [c.name, filtered.filter((p) => p.class_id === c.id)])
+    .filter(([, g]) => g.length > 0);
+  const unassigned = filtered.filter((p) => p.class_id == null || !classIds.has(p.class_id));
+  if (unassigned.length > 0) {
+    groups.push([groups.length > 0 ? "No Class" : "Players", unassigned]);
+  }
+  container.innerHTML = groups.map(([title, g]) => block(title, g)).join("");
 }
 
 function renderClassFilter() {
@@ -183,7 +223,12 @@ document.getElementById("addPlayerBtn").addEventListener("click", () => {
   document.getElementById("playerNameInput").value = "";
   document.getElementById("playerCategoryInput").value = "";
   document.getElementById("playerNotesInput").value = "";
-  document.getElementById("playerLevelSelect").innerHTML = levelSelectOptionsHtml("");
+  const levelSelect = document.getElementById("playerLevelSelect");
+  levelSelect.innerHTML = levelSelectOptionsHtml("");
+  // Basic-tracking clubs (e.g. Sembawang) have no levels.
+  const hideLevel = isBasicClub();
+  levelSelect.classList.toggle("hidden", hideLevel);
+  levelSelect.previousElementSibling.classList.toggle("hidden", hideLevel);
   document.getElementById("playerClassSelect").innerHTML = classSelectOptionsHtml(allClasses, null);
   modal.classList.remove("hidden");
   document.getElementById("playerNameInput").focus();
@@ -204,7 +249,7 @@ document.getElementById("savePlayerBtn").addEventListener("click", async () => {
   const category = document.getElementById("playerCategoryInput").value.trim();
   const notes = document.getElementById("playerNotesInput").value.trim();
   const levelValue = document.getElementById("playerLevelSelect").value;
-  const level_override = levelValue === "" ? null : Number(levelValue);
+  const level_override = levelValue === "" || isBasicClub() ? null : Number(levelValue);
   const classValue = document.getElementById("playerClassSelect").value;
   const class_id = classValue === "" ? null : Number(classValue);
   const res = await fetch("/api/players", {
