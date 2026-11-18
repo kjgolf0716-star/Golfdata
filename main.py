@@ -325,6 +325,9 @@ def list_players(request: Request, _=Depends(require_coach)):
         row["current_week_streak"] = stats["current_week_streak"]
         row["longest_week_streak"] = stats["longest_week_streak"]
         row["gamified"] = gamified
+        dates = {e["entry_date"] for e in by_player.get(row["id"], []) if e["entry_date"]}
+        row["last_entry_date"] = max(dates) if dates else None
+        row["session_count"] = len(dates)
 
         level_quests = quests_by_level.get(stats["level_index"], [])
         if level_quests:
