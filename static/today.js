@@ -101,7 +101,7 @@ function render() {
         <input type="checkbox" ${selected ? "checked" : ""} data-toggle-player="${p.id}" />
         <span class="attendance-name">${escapeHtml(p.name)}</span>
       </label>
-      ${levelChipHtml(p, "sm")}
+      ${p.gamified === false ? "" : levelChipHtml(p, "sm")}
       <a class="attendance-log-link" href="/players/${p.id}">Log training &rarr;</a>
     </div>`;
     })

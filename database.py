@@ -290,6 +290,12 @@ def init_db():
     )
     conn.exec("INSERT OR IGNORE INTO clubs (id, name) VALUES (1, 'D3 Golf Center')")
     conn.exec("INSERT OR IGNORE INTO clubs (id, name) VALUES (2, 'Sembawang Country Club')")
+    # Clubs can opt out of the gamified experience (levels, XP, streaks,
+    # quests, badges). Sembawang tracks drill results only.
+    club_cols = {row["name"] for row in conn.query("PRAGMA table_info(clubs)")}
+    if "gamified" not in club_cols:
+        conn.exec("ALTER TABLE clubs ADD COLUMN gamified INTEGER NOT NULL DEFAULT 1")
+        conn.exec("UPDATE clubs SET gamified=0 WHERE id=2")
     for table in ("players", "drills", "classes", "quests"):
         cols = {row["name"] for row in conn.query(f"PRAGMA table_info({table})")}
         if "club_id" not in cols:

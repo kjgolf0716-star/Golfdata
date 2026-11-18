@@ -66,7 +66,17 @@ if (changePinBtn) {
   } catch (e) {
     return;
   }
-  const { clubs, current } = data;
+  const { clubs, current, gamified } = data;
+
+  // Basic-tracking clubs (e.g. Sembawang) have no attendance calendar or quests.
+  if (gamified === false) {
+    nav.querySelectorAll('a[href="/attendance"], a[href="/quests"]').forEach((a) => a.remove());
+    if (["/attendance", "/quests"].includes(window.location.pathname)) {
+      window.location.href = "/";
+      return;
+    }
+  }
+
   if (!clubs || clubs.length < 2) return;
 
   const select = document.createElement("select");

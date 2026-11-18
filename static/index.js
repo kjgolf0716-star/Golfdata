@@ -13,6 +13,34 @@ async function loadAll() {
   renderPlayers();
 }
 
+// Basic-tracking clubs (e.g. Sembawang) skip levels, streaks and the Hall of Fame.
+function isBasicClub() {
+  return allPlayers.length > 0 && allPlayers[0].gamified === false;
+}
+
+function renderBasicPlayers(base, filtered, query) {
+  const container = document.getElementById("playerList");
+  if (query && filtered.length === 0) {
+    container.innerHTML = `<div class="empty-state">No results found.</div>`;
+    return;
+  }
+  const cards = [...filtered]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(
+      (p) => `
+        <a class="player-card" href="/players/${p.id}">
+          <div class="name">${escapeHtml(p.name)}</div>
+          <div class="meta">${p.notes ? escapeHtml(truncate(p.notes, 60)) : "View training log &rarr;"}</div>
+        </a>`
+    )
+    .join("");
+  container.innerHTML = `
+    <div class="category-block">
+      <div class="category-title">Players <span class="category-count">${filtered.length}</span></div>
+      <div class="player-grid">${cards}</div>
+    </div>`;
+}
+
 function renderClassFilter() {
   const select = document.getElementById("classFilterSelect");
   const prevValue = select.value || "all";
@@ -26,6 +54,10 @@ function renderClassFilter() {
 
 function renderHallOfFame() {
   const container = document.getElementById("hallOfFame");
+  if (isBasicClub()) {
+    container.innerHTML = "";
+    return;
+  }
   const top = [...allPlayers]
     .filter((p) => p.xp > 0)
     .sort((a, b) => b.xp - a.xp)
@@ -77,6 +109,11 @@ function renderPlayers() {
   }
   if (query && filtered.length === 0) {
     container.innerHTML = `<div class="empty-state">No results found.</div>`;
+    return;
+  }
+
+  if (isBasicClub()) {
+    renderBasicPlayers(base, filtered, query);
     return;
   }
 

@@ -84,6 +84,23 @@ async function init() {
   const todayDrills = allDrills.filter((d) => todayDrillIds.has(d.id));
   const training = computeTrainingSummary(entries, allDrills);
 
+  if (player.gamified === false) {
+    // Basic-tracking clubs (e.g. Sembawang): drill results only, no levels/XP/quests/avatar.
+    document.title = `${player.name} · ${player.club_name || "Training Log"}`;
+    // The logo and "level up" footer are D3's gamified branding.
+    const brandEl = document.querySelector(".public-brand");
+    if (brandEl) brandEl.classList.add("hidden");
+    const footerEl = document.querySelector(".public-footer");
+    if (footerEl) footerEl.textContent = "Your coach updates your drill results after each session.";
+    card.innerHTML = `
+      <div class="public-name">${escapeHtml(player.name)}</div>
+      ${player.club_name ? `<div class="public-training-date" style="text-align:center;">${escapeHtml(player.club_name)}</div>` : ""}
+      ${todayDrills.length > 0 ? publicTodayDrillsHtml(todayDrills) : ""}
+      ${training ? publicTrainingHtml(training) : `<div class="public-loading">No training logged yet.</div>`}
+    `;
+    return;
+  }
+
   document.title = `${player.name}'s Golf Journey · D3 Golf Center`;
 
   isFirstTimeAvatar = !player.avatar_seed;

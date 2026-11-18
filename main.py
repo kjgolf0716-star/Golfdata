@@ -264,9 +264,15 @@ class ClubSelectIn(BaseModel):
 
 @app.get("/api/clubs")
 def list_clubs(request: Request, _=Depends(require_coach)):
+    current = _session_club(request)
     with get_conn() as conn:
-        rows = conn.query("SELECT id, name FROM clubs ORDER BY id")
-    return {"clubs": rows, "current": _session_club(request)}
+        rows = conn.query("SELECT id, name, gamified FROM clubs ORDER BY id")
+    current_row = next((r for r in rows if r["id"] == current), None)
+    return {
+        "clubs": [{"id": r["id"], "name": r["name"]} for r in rows],
+        "current": current,
+        "gamified": bool(current_row["gamified"]) if current_row else True,
+    }
 
 
 @app.post("/api/coach/club")
@@ -292,6 +298,8 @@ def list_players(request: Request, _=Depends(require_coach)):
         num_drills = conn.query_one("SELECT COUNT(*) c FROM drills WHERE club_id=?", (club_id,))["c"]
         all_quests = conn.query("SELECT id, target, level_index FROM quests WHERE club_id=?", (club_id,))
         all_progress = conn.query("SELECT player_id, quest_id, current FROM quest_progress")
+        club_row = conn.query_one("SELECT gamified FROM clubs WHERE id=?", (club_id,))
+    gamified = bool(club_row["gamified"]) if club_row else True
 
     by_player = {}
     for e in all_entries:
@@ -316,6 +324,7 @@ def list_players(request: Request, _=Depends(require_coach)):
         row["level_is_manual"] = stats["level_is_manual"]
         row["current_week_streak"] = stats["current_week_streak"]
         row["longest_week_streak"] = stats["longest_week_streak"]
+        row["gamified"] = gamified
 
         level_quests = quests_by_level.get(stats["level_index"], [])
         if level_quests:
@@ -335,9 +344,14 @@ def list_players(request: Request, _=Depends(require_coach)):
 @app.get("/api/players/{player_id}")
 def get_player(player_id: int):
     with get_conn() as conn:
-        row = conn.query_one("SELECT * FROM players WHERE id=?", (player_id,))
+        row = conn.query_one(
+            "SELECT p.*, COALESCE(c.gamified, 1) AS gamified, c.name AS club_name "
+            "FROM players p LEFT JOIN clubs c ON c.id = p.club_id WHERE p.id=?",
+            (player_id,),
+        )
     if not row:
         raise HTTPException(404, "Player not found")
+    row["gamified"] = bool(row["gamified"])
     return row
 
 

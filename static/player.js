@@ -46,10 +46,23 @@ async function loadAll() {
   for (const row of await qpRes.json()) questProgress[row.quest_id] = row.current;
   renderHeader();
   renderTable();
-  renderGamifyPanel();
+  if (isBasicClubPlayer()) {
+    // Basic-tracking clubs (e.g. Sembawang): drill results only, no levels/XP/quests.
+    document.getElementById("gamifyPanel").classList.add("hidden");
+    const levelSelect = document.getElementById("editLevelSelect");
+    levelSelect.classList.add("hidden");
+    levelSelect.previousElementSibling.classList.add("hidden");
+  } else {
+    renderGamifyPanel();
+  }
+}
+
+function isBasicClubPlayer() {
+  return player && player.gamified === false;
 }
 
 async function refreshStats({ celebrate } = { celebrate: false }) {
+  if (isBasicClubPlayer()) return;
   const prevStats = stats;
   const res = await fetch(`/api/players/${playerId}/stats`);
   stats = await res.json();
