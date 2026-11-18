@@ -37,6 +37,27 @@ async function loadAll() {
     return;
   }
   player = await pRes.json();
+
+  // A bookmark or shared link can open a player from a different club than the
+  // one selected in the nav. Switch to that player's club (once) so the header,
+  // drills and classes all match the player instead of showing a mix.
+  if (player.club_id) {
+    try {
+      const clubInfo = await (await fetch("/api/clubs")).json();
+      if (clubInfo.current !== player.club_id) {
+        await fetch("/api/coach/club", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ club_id: player.club_id }),
+        });
+        window.location.reload();
+        return;
+      }
+    } catch {
+      // not fatal - fall through and render what we have
+    }
+  }
+
   drills = await dRes.json();
   entries = await eRes.json();
   stats = await sRes.json();
