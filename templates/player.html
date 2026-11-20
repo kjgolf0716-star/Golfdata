@@ -44,8 +44,7 @@
 
   <div id="gamifyPanel" class="gamify-panel"></div>
 
-  <div id="drillPickerBar" class="drill-picker-bar hidden"></div>
-  <div class="table-wrap">
+  <div id="defaultTableWrap" class="table-wrap">
     <table class="log-table" id="logTable">
       <thead>
         <tr id="tableHeadRow">
@@ -55,6 +54,21 @@
       <tbody id="tableBody"></tbody>
       <tfoot id="tableFoot"></tfoot>
     </table>
+  </div>
+
+  <div id="regularSection" class="regular-section hidden">
+    <h2 class="regular-section-title">Regular drills</h2>
+    <div class="table-wrap">
+      <table class="log-table" id="regularTable">
+        <thead>
+          <tr id="regularHeadRow">
+            <th class="date-col">Date</th>
+          </tr>
+        </thead>
+        <tbody id="regularBody"></tbody>
+        <tfoot id="regularFoot"></tfoot>
+      </table>
+    </div>
   </div>
   <p id="emptyHint" class="empty-state hidden">No records yet. Use the 'Add Date' button to log the first training session.</p>
 </main>

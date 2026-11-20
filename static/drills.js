@@ -37,7 +37,7 @@ function render() {
     ) +
     sectionHtml(
       "Regular drills",
-      "Extras used as needed. A regular drill only appears in a player's log once that player has a record for it, or when you add it with the picker above their table.",
+      "Extras used as needed. These appear in their own table below the default drills in every player's training log.",
       regulars,
       "regular"
     );

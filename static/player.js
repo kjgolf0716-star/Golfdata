@@ -207,42 +207,39 @@ document.getElementById("regenerateCodeBtn").addEventListener("click", async () 
   flashSaved();
 });
 
-// Regular drills the coach switched on from the picker before entering a value.
-const extraShown = new Set();
+// The log is two tables sharing the same date rows: the default drills first,
+// then the regular drills underneath. Only the default table carries the
+// per-date Delete button (deleting a date removes that day's records from both).
+const LOG_TABLES = [
+  {
+    wrapId: "defaultTableWrap",
+    headRowId: "tableHeadRow",
+    bodyId: "tableBody",
+    footId: "tableFoot",
+    withDelete: true,
+    pick: (d) => d.is_default !== false,
+  },
+  {
+    wrapId: "regularSection",
+    headRowId: "regularHeadRow",
+    bodyId: "regularBody",
+    footId: "regularFoot",
+    withDelete: false,
+    pick: (d) => d.is_default === false,
+  },
+];
 
-// Default drills always show. A regular drill shows once this player has a
-// record for it (or the coach added it from the picker).
-function shownDrills() {
-  const withData = new Set(entries.filter((e) => e.value !== "").map((e) => e.drill_id));
-  return drills.filter((d) => d.is_default !== false || withData.has(d.id) || extraShown.has(d.id));
-}
-
-function renderDrillPicker(visible) {
-  const bar = document.getElementById("drillPickerBar");
-  const shownIds = new Set(visible.map((d) => d.id));
-  const hidden = drills.filter((d) => d.is_default === false && !shownIds.has(d.id));
-  if (hidden.length === 0) {
-    bar.classList.add("hidden");
-    bar.innerHTML = "";
+function renderLogTable(cfg, list, dates, map) {
+  const wrap = document.getElementById(cfg.wrapId);
+  if (list.length === 0) {
+    wrap.classList.add("hidden");
     return;
   }
-  bar.classList.remove("hidden");
-  bar.innerHTML = `<select id="drillPickerSelect" class="search-input">
-      <option value="">+ Add a regular drill column\u2026</option>
-      ${hidden.map((d) => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join("")}
-    </select>`;
-  document.getElementById("drillPickerSelect").addEventListener("change", (e) => {
-    if (!e.target.value) return;
-    extraShown.add(Number(e.target.value));
-    renderTable();
-  });
-}
+  wrap.classList.remove("hidden");
 
-function renderTable() {
-  const visible = shownDrills();
-  const headRow = document.getElementById("tableHeadRow");
+  const headRow = document.getElementById(cfg.headRowId);
   headRow.innerHTML = `<th class="date-col">Date</th>` +
-    visible
+    list
       .map(
         (d) => `<th>
           <div class="drill-name">${escapeHtml(d.name)}</div>
@@ -250,30 +247,16 @@ function renderTable() {
         </th>`
       )
       .join("") +
-    `<th class="actions-col"></th>`;
+    (cfg.withDelete ? `<th class="actions-col"></th>` : "");
   // Long descriptions are clamped to a few lines; tap one to read it in full.
   headRow.querySelectorAll(".drill-desc").forEach((el) => {
     if (el.textContent.trim()) el.addEventListener("click", () => el.classList.toggle("expanded"));
   });
 
-  const map = entryMap();
-  const dates = Object.keys(map).sort();
-  const tbody = document.getElementById("tableBody");
-  const emptyHint = document.getElementById("emptyHint");
-
-  if (dates.length === 0) {
-    tbody.innerHTML = "";
-    emptyHint.classList.remove("hidden");
-    document.getElementById("logTable").classList.add("hidden");
-    document.getElementById("drillPickerBar").classList.add("hidden");
-    return;
-  }
-  emptyHint.classList.add("hidden");
-  document.getElementById("logTable").classList.remove("hidden");
-
+  const tbody = document.getElementById(cfg.bodyId);
   tbody.innerHTML = dates
     .map((date) => {
-      const cells = visible
+      const cells = list
         .map((d) => {
           const val = map[date][d.id] ?? "";
           return `<td class="value-cell">
@@ -282,12 +265,15 @@ function renderTable() {
           </td>`;
         })
         .join("");
+      const actions = cfg.withDelete
+        ? `<td class="row-actions">
+          <button class="btn-icon btn-danger" data-delete-date="${date}" title="Delete this date's record">Delete</button>
+        </td>`
+        : "";
       return `<tr>
         <td class="date-cell">${formatDate(date)}</td>
         ${cells}
-        <td class="row-actions">
-          <button class="btn-icon btn-danger" data-delete-date="${date}" title="Delete this date's record">Delete</button>
-        </td>
+        ${actions}
       </tr>`;
     })
     .join("");
@@ -298,43 +284,62 @@ function renderTable() {
   tbody.querySelectorAll("[data-delete-date]").forEach((btn) => {
     btn.addEventListener("click", onDeleteDate);
   });
+}
 
-  renderDrillPicker(visible);
+function renderTable() {
+  const map = entryMap();
+  const dates = Object.keys(map).sort();
+  const emptyHint = document.getElementById("emptyHint");
+
+  if (dates.length === 0) {
+    emptyHint.classList.remove("hidden");
+    LOG_TABLES.forEach((cfg) => {
+      document.getElementById(cfg.bodyId).innerHTML = "";
+      document.getElementById(cfg.wrapId).classList.add("hidden");
+    });
+    return;
+  }
+  emptyHint.classList.add("hidden");
+
+  LOG_TABLES.forEach((cfg) => renderLogTable(cfg, drills.filter(cfg.pick), dates, map));
   renderAverages();
 }
 
 function renderAverages() {
-  const tfoot = document.getElementById("tableFoot");
   const map = entryMap();
   const dates = Object.keys(map);
-  if (dates.length === 0) {
-    tfoot.innerHTML = "";
-    return;
-  }
 
-  const visible = shownDrills();
-  const sums = {};
-  const counts = {};
-  for (const date of dates) {
-    for (const d of visible) {
-      const raw = map[date][d.id];
-      const num = parseFloat(raw);
-      if (raw !== undefined && raw !== "" && !Number.isNaN(num)) {
-        sums[d.id] = (sums[d.id] ?? 0) + num;
-        counts[d.id] = (counts[d.id] ?? 0) + 1;
+  LOG_TABLES.forEach((cfg) => {
+    const tfoot = document.getElementById(cfg.footId);
+    const list = drills.filter(cfg.pick);
+    if (dates.length === 0 || list.length === 0) {
+      tfoot.innerHTML = "";
+      return;
+    }
+
+    const sums = {};
+    const counts = {};
+    for (const date of dates) {
+      for (const d of list) {
+        const raw = map[date][d.id];
+        const num = parseFloat(raw);
+        if (raw !== undefined && raw !== "" && !Number.isNaN(num)) {
+          sums[d.id] = (sums[d.id] ?? 0) + num;
+          counts[d.id] = (counts[d.id] ?? 0) + 1;
+        }
       }
     }
-  }
 
-  const cells = visible
-    .map((d) => {
-      const c = counts[d.id];
-      const text = c ? formatAvg(sums[d.id] / c) : "-";
-      return `<td class="avg-cell">${text}</td>`;
-    })
-    .join("");
+    const cells = list
+      .map((d) => {
+        const c = counts[d.id];
+        const text = c ? formatAvg(sums[d.id] / c) : "-";
+        return `<td class="avg-cell">${text}</td>`;
+      })
+      .join("");
 
-  tfoot.innerHTML = `<tr class="avg-row"><td class="date-cell">Average</td>${cells}<td></td></tr>`;
+    tfoot.innerHTML = `<tr class="avg-row"><td class="date-cell">Average</td>${cells}${cfg.withDelete ? "<td></td>" : ""}</tr>`;
+  });
 }
 
 function formatAvg(n) {
