@@ -207,10 +207,10 @@ document.getElementById("regenerateCodeBtn").addEventListener("click", async () 
   flashSaved();
 });
 
-// The log is the default-drills table plus, underneath, a per-date list of
-// regular drills: for each date the coach adds only the extra drills actually
-// done that day. Only the default table carries the per-date Delete button
-// (deleting a date removes that day's records from both).
+// The log is two independent parts: the default-drills table, and underneath a
+// Regular drills section with its own dates. Deleting in one never touches the
+// other: the default table's Delete clears only default drill results, and the
+// regular section's buttons clear only regular drill results.
 const LOG_TABLES = [
   {
     wrapId: "defaultTableWrap",
@@ -225,9 +225,43 @@ const LOG_TABLES = [
 // Regular drills added to a date but not given a value yet (a record only
 // exists once it has a value): date -> Set of drill ids. Kept in the page only.
 const pendingRegular = {};
+// Dates the coach opened in the Regular drills section, so the card shows even
+// before it has a result. Kept in the page only.
+const regularDatesPending = new Set();
 
 function regularDrillList() {
   return drills.filter((d) => d.is_default === false);
+}
+
+function defaultDrillIds() {
+  return new Set(drills.filter((d) => d.is_default !== false).map((d) => d.id));
+}
+
+function hasValueFor(map, date, idSet) {
+  if (!map[date]) return false;
+  for (const id of idSet) {
+    if (map[date][id] !== undefined && map[date][id] !== "") return true;
+  }
+  return false;
+}
+
+// Default table rows: dates with a default drill result, or added with "+ Add Date".
+function defaultDateList(map) {
+  const ids = defaultDrillIds();
+  return Object.keys(map)
+    .filter((date) => manualDates.has(date) || hasValueFor(map, date, ids))
+    .sort();
+}
+
+// Regular section cards: dates with a regular drill result, or opened with "+ Add date".
+function regularDateList(map) {
+  const ids = new Set(regularDrillList().map((d) => d.id));
+  const set = new Set(Object.keys(map).filter((date) => hasValueFor(map, date, ids)));
+  regularDatesPending.forEach((d) => set.add(d));
+  Object.keys(pendingRegular).forEach((d) => {
+    if (pendingRegular[d] && pendingRegular[d].size) set.add(d);
+  });
+  return [...set].sort();
 }
 
 function regularIdsForDate(date, map) {
@@ -239,16 +273,23 @@ function regularIdsForDate(date, map) {
   return ids;
 }
 
-function renderRegularSection(dates, map) {
+function renderRegularSection() {
   const section = document.getElementById("regularSection");
   const regular = regularDrillList();
-  if (regular.length === 0 || dates.length === 0) {
+  if (regular.length === 0) {
     section.classList.add("hidden");
     return;
   }
   section.classList.remove("hidden");
 
+  const map = entryMap();
+  const dates = regularDateList(map);
   const list = document.getElementById("regularList");
+  if (dates.length === 0) {
+    list.innerHTML = `<div class="empty-state">No regular drills logged yet. Use "+ Add date" to start.</div>`;
+    return;
+  }
+
   list.innerHTML = dates
     .map((date) => {
       const used = regularIdsForDate(date, map);
@@ -260,7 +301,7 @@ function renderRegularSection(dates, map) {
             <div class="regular-item-name">${escapeHtml(d.name)}</div>
             <input type="text" inputmode="decimal" value="${escapeHtml(val)}"
               data-date="${date}" data-drill="${d.id}" placeholder="Result" />
-            <button type="button" class="regular-remove" title="Remove from this date"
+            <button type="button" class="regular-remove" title="Remove this drill from this date"
               data-remove-regular data-date="${date}" data-drill="${d.id}">&times;</button>
           </div>`;
         })
@@ -275,12 +316,8 @@ function renderRegularSection(dates, map) {
       return `<div class="regular-day">
         <div class="regular-day-top">
           <div class="regular-day-head">${formatDate(date)}</div>
-          ${
-            items
-              ? `<button type="button" class="btn-icon btn-danger" data-clear-regular="${date}"
-            title="Remove this day's regular drills. Default drills are not affected.">Remove all</button>`
-              : ""
-          }
+          <button type="button" class="btn-icon btn-danger" data-clear-regular="${date}"
+            title="Remove this date from the regular drills. Default drills are not affected.">Remove date</button>
         </div>
         ${items ? `<div class="regular-items">${items}</div>` : ""}
         ${picker}
@@ -297,7 +334,8 @@ function renderRegularSection(dates, map) {
       const date = sel.dataset.addRegular;
       const id = Number(sel.value);
       (pendingRegular[date] = pendingRegular[date] || new Set()).add(id);
-      renderRegularSection(dates, entryMap());
+      regularDatesPending.add(date);
+      renderRegularSection();
       const input = document.querySelector(`#regularList input[data-date="${date}"][data-drill="${id}"]`);
       if (input) input.focus();
     });
@@ -310,34 +348,32 @@ function renderRegularSection(dates, map) {
   });
 }
 
-// Removes only this date's regular drill results. The date row and the default
-// drill results above are left alone (use the Delete button in the default
-// table to remove the whole day).
+async function postEntry(drillId, date, value) {
+  await fetch("/api/entries", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ player_id: playerId, drill_id: drillId, entry_date: date, value }),
+  });
+}
+
+// Removes this date from the regular drills section: only regular drill
+// results go. The default table and its results are left alone.
 async function onClearRegularDay(e) {
   const date = e.currentTarget.dataset.clearRegular;
   const regularIds = new Set(regularDrillList().map((d) => d.id));
   const recorded = entries.filter((x) => x.entry_date === date && regularIds.has(x.drill_id));
   if (recorded.length > 0) {
     const ok = await confirmDialog(
-      `Remove all regular drills from ${date}? Their results will be deleted. Default drills are not affected.`,
+      `Remove ${date} from the regular drills? Its regular drill results will be deleted. Default drills are not affected.`,
       { confirmLabel: "Remove", danger: true }
     );
     if (!ok) return;
-    await Promise.all(
-      recorded.map((x) =>
-        fetch("/api/entries", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ player_id: playerId, drill_id: x.drill_id, entry_date: date, value: "" }),
-        })
-      )
-    );
+    await Promise.all(recorded.map((x) => postEntry(x.drill_id, date, "")));
     entries = entries.filter((x) => !(x.entry_date === date && regularIds.has(x.drill_id)));
   }
   delete pendingRegular[date];
-  const map = entryMap();
-  renderRegularSection(Object.keys(map).sort(), map);
-  renderAverages();
+  regularDatesPending.delete(date);
+  renderTable();
   if (recorded.length > 0) {
     flashSaved("Removed");
     await refreshStats();
@@ -355,17 +391,12 @@ async function onRemoveRegular(e) {
       danger: true,
     });
     if (!ok) return;
-    await fetch("/api/entries", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ player_id: playerId, drill_id: drillId, entry_date: date, value: "" }),
-    });
+    await postEntry(drillId, date, "");
     entries = entries.filter((x) => !(x.entry_date === date && x.drill_id === drillId));
   }
   if (pendingRegular[date]) pendingRegular[date].delete(drillId);
-  const map = entryMap();
-  renderRegularSection(Object.keys(map).sort(), map);
-  renderAverages();
+  regularDatesPending.add(date); // keep the card so the date can be removed on purpose
+  renderTable();
   if (had) {
     flashSaved("Removed");
     await refreshStats();
@@ -431,22 +462,22 @@ function renderLogTable(cfg, list, dates, map) {
 
 function renderTable() {
   const map = entryMap();
-  const dates = Object.keys(map).sort();
+  const defaultDates = defaultDateList(map);
+  const regularDates = regularDateList(map);
   const emptyHint = document.getElementById("emptyHint");
 
-  if (dates.length === 0) {
-    emptyHint.classList.remove("hidden");
+  if (defaultDates.length === 0) {
     LOG_TABLES.forEach((cfg) => {
       document.getElementById(cfg.bodyId).innerHTML = "";
+      document.getElementById(cfg.footId).innerHTML = "";
       document.getElementById(cfg.wrapId).classList.add("hidden");
     });
-    document.getElementById("regularSection").classList.add("hidden");
-    return;
+  } else {
+    LOG_TABLES.forEach((cfg) => renderLogTable(cfg, drills.filter(cfg.pick), defaultDates, map));
   }
-  emptyHint.classList.add("hidden");
+  emptyHint.classList.toggle("hidden", defaultDates.length > 0 || regularDates.length > 0);
 
-  LOG_TABLES.forEach((cfg) => renderLogTable(cfg, drills.filter(cfg.pick), dates, map));
-  renderRegularSection(dates, map);
+  renderRegularSection();
   renderAverages();
 }
 
@@ -540,21 +571,32 @@ async function onCellChange(e) {
   } else {
     entries.push({ player_id: playerId, drill_id: drillId, entry_date: date, value });
   }
-  manualDates.delete(date);
   const changedDrill = drills.find((x) => x.id === drillId);
-  if (value === "" && changedDrill && changedDrill.is_default === false) {
+  const isRegular = !!changedDrill && changedDrill.is_default === false;
+  if (!isRegular) manualDates.delete(date);
+  if (isRegular && value === "") {
+    // keep the row visible after clearing its result
     (pendingRegular[date] = pendingRegular[date] || new Set()).add(drillId);
+    regularDatesPending.add(date);
   }
   renderAverages();
   flashSaved();
   await refreshStats({ celebrate: value !== "" });
 }
 
+// Deletes this date from the default table: only default drill results go.
+// Regular drill results on the same date are not affected.
 async function onDeleteDate(e) {
   const date = e.target.dataset.deleteDate;
-  if (!(await confirmDialog(`Delete the whole day ${date}? Its default and regular drill results will all be deleted.`, { confirmLabel: "Delete", danger: true }))) return;
-  await fetch(`/api/players/${playerId}/dates/${date}`, { method: "DELETE" });
-  entries = entries.filter((x) => x.entry_date !== date);
+  const defIds = defaultDrillIds();
+  const ok = await confirmDialog(
+    `Delete ${date} from the default drills? Regular drill results on this date are not affected.`,
+    { confirmLabel: "Delete", danger: true }
+  );
+  if (!ok) return;
+  const recorded = entries.filter((x) => x.entry_date === date && defIds.has(x.drill_id));
+  await Promise.all(recorded.map((x) => postEntry(x.drill_id, date, "")));
+  entries = entries.filter((x) => !(x.entry_date === date && defIds.has(x.drill_id)));
   manualDates.delete(date);
   renderTable();
   flashSaved("Deleted");
@@ -576,19 +618,28 @@ function escapeHtml(str) {
 }
 
 // ---------- Add date ----------
+// One date picker serves both "+ Add Date" (default table) and the regular
+// drills section's own "+ Add date".
 const dateModal = document.getElementById("dateModal");
-document.getElementById("addDateBtn").addEventListener("click", () => {
+let dateModalTarget = "default";
+
+function openDateModal(target) {
+  dateModalTarget = target;
   const today = new Date().toISOString().slice(0, 10);
   document.getElementById("newDateInput").value = today;
   dateModal.classList.remove("hidden");
-});
+}
+
+document.getElementById("addDateBtn").addEventListener("click", () => openDateModal("default"));
+document.getElementById("addRegularDateBtn").addEventListener("click", () => openDateModal("regular"));
 document.getElementById("cancelDateBtn").addEventListener("click", () => dateModal.classList.add("hidden"));
 dateModal.addEventListener("click", (e) => { if (e.target === dateModal) dateModal.classList.add("hidden"); });
 
 document.getElementById("confirmDateBtn").addEventListener("click", () => {
   const date = document.getElementById("newDateInput").value;
   if (!date) return;
-  manualDates.add(date);
+  if (dateModalTarget === "regular") regularDatesPending.add(date);
+  else manualDates.add(date);
   dateModal.classList.add("hidden");
   renderTable();
 });

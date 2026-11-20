@@ -1724,3 +1724,6 @@ table.log-table thead th .drill-desc.expanded {
   font-size: 14px;
 }
 .regular-avg-row em { color: var(--muted); font-style: normal; font-size: 12px; }
+
+.regular-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 2px; }
+.regular-section-head .btn-secondary { padding: 7px 14px; font-size: 13px; }
