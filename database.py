@@ -303,6 +303,15 @@ def init_db():
         if "club_id" not in cols:
             conn.exec(f"ALTER TABLE {table} ADD COLUMN club_id INTEGER NOT NULL DEFAULT 1")
 
+    # Default drills are the core set shown for every player; regular drills
+    # are extras that only appear in a player's log once that player has a
+    # record for them. Existing drills stay default, except D3's later
+    # additions (ids above the original 8 seeded ones), which become regular.
+    drill_cols = {row["name"] for row in conn.query("PRAGMA table_info(drills)")}
+    if "is_default" not in drill_cols:
+        conn.exec("ALTER TABLE drills ADD COLUMN is_default INTEGER NOT NULL DEFAULT 1")
+        conn.exec("UPDATE drills SET is_default=0 WHERE club_id=1 AND id>8")
+
     count = conn.query_one("SELECT COUNT(*) c FROM drills")["c"]
     if count == 0:
         default_drills = [

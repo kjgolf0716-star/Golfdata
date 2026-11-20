@@ -207,10 +207,42 @@ document.getElementById("regenerateCodeBtn").addEventListener("click", async () 
   flashSaved();
 });
 
+// Regular drills the coach switched on from the picker before entering a value.
+const extraShown = new Set();
+
+// Default drills always show. A regular drill shows once this player has a
+// record for it (or the coach added it from the picker).
+function shownDrills() {
+  const withData = new Set(entries.filter((e) => e.value !== "").map((e) => e.drill_id));
+  return drills.filter((d) => d.is_default !== false || withData.has(d.id) || extraShown.has(d.id));
+}
+
+function renderDrillPicker(visible) {
+  const bar = document.getElementById("drillPickerBar");
+  const shownIds = new Set(visible.map((d) => d.id));
+  const hidden = drills.filter((d) => d.is_default === false && !shownIds.has(d.id));
+  if (hidden.length === 0) {
+    bar.classList.add("hidden");
+    bar.innerHTML = "";
+    return;
+  }
+  bar.classList.remove("hidden");
+  bar.innerHTML = `<select id="drillPickerSelect" class="search-input">
+      <option value="">+ Add a regular drill column\u2026</option>
+      ${hidden.map((d) => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join("")}
+    </select>`;
+  document.getElementById("drillPickerSelect").addEventListener("change", (e) => {
+    if (!e.target.value) return;
+    extraShown.add(Number(e.target.value));
+    renderTable();
+  });
+}
+
 function renderTable() {
+  const visible = shownDrills();
   const headRow = document.getElementById("tableHeadRow");
   headRow.innerHTML = `<th class="date-col">Date</th>` +
-    drills
+    visible
       .map(
         (d) => `<th>
           <div class="drill-name">${escapeHtml(d.name)}</div>
@@ -233,6 +265,7 @@ function renderTable() {
     tbody.innerHTML = "";
     emptyHint.classList.remove("hidden");
     document.getElementById("logTable").classList.add("hidden");
+    document.getElementById("drillPickerBar").classList.add("hidden");
     return;
   }
   emptyHint.classList.add("hidden");
@@ -240,7 +273,7 @@ function renderTable() {
 
   tbody.innerHTML = dates
     .map((date) => {
-      const cells = drills
+      const cells = visible
         .map((d) => {
           const val = map[date][d.id] ?? "";
           return `<td class="value-cell">
@@ -266,6 +299,7 @@ function renderTable() {
     btn.addEventListener("click", onDeleteDate);
   });
 
+  renderDrillPicker(visible);
   renderAverages();
 }
 
@@ -278,10 +312,11 @@ function renderAverages() {
     return;
   }
 
+  const visible = shownDrills();
   const sums = {};
   const counts = {};
   for (const date of dates) {
-    for (const d of drills) {
+    for (const d of visible) {
       const raw = map[date][d.id];
       const num = parseFloat(raw);
       if (raw !== undefined && raw !== "" && !Number.isNaN(num)) {
@@ -291,7 +326,7 @@ function renderAverages() {
     }
   }
 
-  const cells = drills
+  const cells = visible
     .map((d) => {
       const c = counts[d.id];
       const text = c ? formatAvg(sums[d.id] / c) : "-";

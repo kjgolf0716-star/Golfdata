@@ -154,8 +154,12 @@ def _week_streaks(session_dates):
     return current, longest
 
 
-def compute_player_stats(entries, num_drills, level_override=None):
-    """entries: iterable of dicts with entry_date, drill_id, value."""
+def compute_player_stats(entries, num_drills, level_override=None, required_drill_ids=None):
+    """entries: iterable of dicts with entry_date, drill_id, value.
+
+    required_drill_ids: when given, a session is "perfect" once every one of
+    these (the club's default drills) is filled; optional regular drills never
+    block it. Otherwise falls back to "filled at least num_drills drills"."""
     sessions = {}
     for e in entries:
         value = (e.get("value") or "").strip() if isinstance(e, dict) else ""
@@ -163,16 +167,19 @@ def compute_player_stats(entries, num_drills, level_override=None):
             continue
         sessions.setdefault(e["entry_date"], set()).add(e["drill_id"])
 
+    def is_perfect(drill_ids):
+        if required_drill_ids is not None:
+            return bool(required_drill_ids) and set(required_drill_ids) <= drill_ids
+        return num_drills > 0 and len(drill_ids) >= num_drills
+
     total_sessions = len(sessions)
     total_filled = sum(len(v) for v in sessions.values())
-    perfect_sessions = sum(
-        1 for v in sessions.values() if num_drills > 0 and len(v) >= num_drills
-    )
+    perfect_sessions = sum(1 for v in sessions.values() if is_perfect(v))
 
     xp = 0
     for drill_ids in sessions.values():
         xp += SESSION_BASE_XP + PER_DRILL_XP * len(drill_ids)
-        if num_drills > 0 and len(drill_ids) >= num_drills:
+        if is_perfect(drill_ids):
             xp += PERFECT_SESSION_BONUS
 
     current_streak, longest_streak = _week_streaks(sessions.keys())

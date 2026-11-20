@@ -1638,3 +1638,14 @@ table.log-table thead th .drill-desc.expanded {
     flex: none;
   }
 }
+
+/* Default vs regular drills */
+.drill-section { margin-top: 28px; }
+.drill-section-head h2 { font-size: 18px; margin: 0 0 4px; }
+.drill-section-head p { color: var(--muted); font-size: 13px; margin: 0; line-height: 1.45; }
+.drill-row-actions { display: flex; gap: 8px; align-items: flex-start; flex-shrink: 0; }
+.drill-picker-bar { margin: 12px 0 0; }
+.drill-picker-bar select { max-width: 320px; width: 100%; }
+@media (max-width: 640px) {
+  .drill-manager-row .drill-row-actions { align-self: flex-end; }
+}

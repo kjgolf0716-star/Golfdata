@@ -105,6 +105,7 @@ class ClassIn(BaseModel):
 class DrillIn(BaseModel):
     name: str
     description: str = ""
+    is_default: bool | None = None  # None = leave unchanged (update) / default (create)
 
 
 class DrillReorder(BaseModel):
@@ -304,6 +305,9 @@ def list_players(request: Request, _=Depends(require_coach)):
         all_quests = conn.query("SELECT id, target, level_index FROM quests WHERE club_id=?", (club_id,))
         all_progress = conn.query("SELECT player_id, quest_id, current FROM quest_progress")
         club_row = conn.query_one("SELECT gamified FROM clubs WHERE id=?", (club_id,))
+        default_ids = {
+            r["id"] for r in conn.query("SELECT id FROM drills WHERE club_id=? AND is_default=1", (club_id,))
+        }
     gamified = bool(club_row["gamified"]) if club_row else True
 
     by_player = {}
@@ -320,7 +324,8 @@ def list_players(request: Request, _=Depends(require_coach)):
 
     for row in rows:
         stats = gamify.compute_player_stats(
-            by_player.get(row["id"], []), num_drills, row.get("level_override")
+            by_player.get(row["id"], []), num_drills, row.get("level_override"),
+            required_drill_ids=default_ids,
         )
         row["xp"] = stats["xp"]
         row["level_index"] = stats["level_index"]
@@ -372,8 +377,11 @@ def get_player_stats(player_id: int):
         )
         player_club = player_row["club_id"] if player_row else 1
         num_drills = conn.query_one("SELECT COUNT(*) c FROM drills WHERE club_id=?", (player_club,))["c"]
+        default_ids = {
+            r["id"] for r in conn.query("SELECT id FROM drills WHERE club_id=? AND is_default=1", (player_club,))
+        }
     level_override = player_row["level_override"] if player_row else None
-    return gamify.compute_player_stats(entries, num_drills, level_override)
+    return gamify.compute_player_stats(entries, num_drills, level_override, required_drill_ids=default_ids)
 
 
 AVATAR_BG_CHOICES = {
@@ -529,6 +537,8 @@ def list_drills(request: Request, club_id: int | None = None):
         rows = conn.query(
             "SELECT * FROM drills WHERE club_id=? ORDER BY sort_order, id", (_resolve_club(request, club_id),)
         )
+    for r in rows:
+        r["is_default"] = bool(r["is_default"])
     return rows
 
 
@@ -537,8 +547,9 @@ def create_drill(drill: DrillIn, request: Request, _=Depends(require_coach)):
     with get_conn() as conn:
         max_order = conn.query_one("SELECT COALESCE(MAX(sort_order), 0) m FROM drills")["m"]
         cur = conn.exec(
-            "INSERT INTO drills (name, description, sort_order, club_id) VALUES (?, ?, ?, ?)",
-            (drill.name.strip(), drill.description.strip(), max_order + 1, _session_club(request)),
+            "INSERT INTO drills (name, description, sort_order, club_id, is_default) VALUES (?, ?, ?, ?, ?)",
+            (drill.name.strip(), drill.description.strip(), max_order + 1, _session_club(request),
+             0 if drill.is_default is False else 1),
         )
         new_id = cur.lastrowid
     return {"id": new_id}
@@ -551,6 +562,8 @@ def update_drill(drill_id: int, drill: DrillIn, _=Depends(require_coach)):
             "UPDATE drills SET name=?, description=? WHERE id=?",
             (drill.name.strip(), drill.description.strip(), drill_id),
         )
+        if drill.is_default is not None:
+            conn.exec("UPDATE drills SET is_default=? WHERE id=?", (1 if drill.is_default else 0, drill_id))
     return {"ok": True}
 
 
