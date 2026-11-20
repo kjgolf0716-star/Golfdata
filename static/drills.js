@@ -37,7 +37,7 @@ function render() {
     ) +
     sectionHtml(
       "Regular drills",
-      "Extras used as needed. These appear in their own table below the default drills in every player's training log.",
+      "Extras used as needed. In a player's log you add them one at a time, for the dates they were actually done.",
       regulars,
       "regular"
     );

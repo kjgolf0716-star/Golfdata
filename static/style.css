@@ -1658,3 +1658,68 @@ table.log-table thead th .drill-desc.expanded {
   line-height: 1.5;
   white-space: pre-line;
 }
+
+/* Regular drills: per-date cards, added one drill at a time */
+.regular-section-hint { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.regular-day {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+}
+.regular-day-head { font-weight: 700; font-size: 14px; color: var(--green-900); margin-bottom: 8px; }
+.regular-items { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.regular-item { display: flex; align-items: center; gap: 10px; }
+.regular-item-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.3; }
+.regular-item input {
+  width: 96px;
+  flex-shrink: 0;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+  font-size: 15px;
+  font-family: inherit;
+}
+.regular-item input:focus { outline: 2px solid var(--green-500); outline-offset: -2px; background: var(--green-50); }
+.regular-remove {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.regular-remove:hover { color: var(--danger); border-color: #f1d4d0; background: #fdf1ef; }
+.regular-add-select {
+  width: 100%;
+  max-width: 340px;
+  padding: 10px 12px;
+  border: 1px dashed var(--green-500);
+  border-radius: 8px;
+  background: var(--green-50);
+  color: var(--green-700);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+}
+.regular-averages { margin-top: 14px; }
+.regular-avg-title { font-size: 13px; font-weight: 700; color: var(--green-900); margin-bottom: 6px; }
+.regular-avg-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--green-100);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+.regular-avg-row em { color: var(--muted); font-style: normal; font-size: 12px; }

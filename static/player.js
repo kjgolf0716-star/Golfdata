@@ -207,9 +207,10 @@ document.getElementById("regenerateCodeBtn").addEventListener("click", async () 
   flashSaved();
 });
 
-// The log is two tables sharing the same date rows: the default drills first,
-// then the regular drills underneath. Only the default table carries the
-// per-date Delete button (deleting a date removes that day's records from both).
+// The log is the default-drills table plus, underneath, a per-date list of
+// regular drills: for each date the coach adds only the extra drills actually
+// done that day. Only the default table carries the per-date Delete button
+// (deleting a date removes that day's records from both).
 const LOG_TABLES = [
   {
     wrapId: "defaultTableWrap",
@@ -219,15 +220,112 @@ const LOG_TABLES = [
     withDelete: true,
     pick: (d) => d.is_default !== false,
   },
-  {
-    wrapId: "regularSection",
-    headRowId: "regularHeadRow",
-    bodyId: "regularBody",
-    footId: "regularFoot",
-    withDelete: false,
-    pick: (d) => d.is_default === false,
-  },
 ];
+
+// Regular drills added to a date but not given a value yet (a record only
+// exists once it has a value): date -> Set of drill ids. Kept in the page only.
+const pendingRegular = {};
+
+function regularDrillList() {
+  return drills.filter((d) => d.is_default === false);
+}
+
+function regularIdsForDate(date, map) {
+  const ids = new Set();
+  for (const d of regularDrillList()) {
+    if (map[date] && map[date][d.id] !== undefined) ids.add(d.id);
+  }
+  (pendingRegular[date] || new Set()).forEach((id) => ids.add(id));
+  return ids;
+}
+
+function renderRegularSection(dates, map) {
+  const section = document.getElementById("regularSection");
+  const regular = regularDrillList();
+  if (regular.length === 0 || dates.length === 0) {
+    section.classList.add("hidden");
+    return;
+  }
+  section.classList.remove("hidden");
+
+  const list = document.getElementById("regularList");
+  list.innerHTML = dates
+    .map((date) => {
+      const used = regularIdsForDate(date, map);
+      const items = regular
+        .filter((d) => used.has(d.id))
+        .map((d) => {
+          const val = map[date] && map[date][d.id] !== undefined ? map[date][d.id] : "";
+          return `<div class="regular-item">
+            <div class="regular-item-name">${escapeHtml(d.name)}</div>
+            <input type="text" inputmode="decimal" value="${escapeHtml(val)}"
+              data-date="${date}" data-drill="${d.id}" placeholder="Result" />
+            <button type="button" class="regular-remove" title="Remove from this date"
+              data-remove-regular data-date="${date}" data-drill="${d.id}">&times;</button>
+          </div>`;
+        })
+        .join("");
+      const available = regular.filter((d) => !used.has(d.id));
+      const picker = available.length
+        ? `<select class="regular-add-select" data-add-regular="${date}">
+            <option value="">+ Add regular drill\u2026</option>
+            ${available.map((d) => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join("")}
+          </select>`
+        : "";
+      return `<div class="regular-day">
+        <div class="regular-day-head">${formatDate(date)}</div>
+        ${items ? `<div class="regular-items">${items}</div>` : ""}
+        ${picker}
+      </div>`;
+    })
+    .join("");
+
+  list.querySelectorAll("input[data-date]").forEach((input) => {
+    input.addEventListener("change", onCellChange);
+  });
+  list.querySelectorAll("[data-add-regular]").forEach((sel) => {
+    sel.addEventListener("change", () => {
+      if (!sel.value) return;
+      const date = sel.dataset.addRegular;
+      const id = Number(sel.value);
+      (pendingRegular[date] = pendingRegular[date] || new Set()).add(id);
+      renderRegularSection(dates, entryMap());
+      const input = document.querySelector(`#regularList input[data-date="${date}"][data-drill="${id}"]`);
+      if (input) input.focus();
+    });
+  });
+  list.querySelectorAll("[data-remove-regular]").forEach((btn) => {
+    btn.addEventListener("click", onRemoveRegular);
+  });
+}
+
+async function onRemoveRegular(e) {
+  const date = e.currentTarget.dataset.date;
+  const drillId = Number(e.currentTarget.dataset.drill);
+  const had = entries.some((x) => x.entry_date === date && x.drill_id === drillId);
+  if (had) {
+    const d = drills.find((x) => x.id === drillId);
+    const ok = await confirmDialog(`Remove ${d ? d.name : "this drill"} from ${date}? Its result will be deleted.`, {
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
+    await fetch("/api/entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ player_id: playerId, drill_id: drillId, entry_date: date, value: "" }),
+    });
+    entries = entries.filter((x) => !(x.entry_date === date && x.drill_id === drillId));
+  }
+  if (pendingRegular[date]) pendingRegular[date].delete(drillId);
+  const map = entryMap();
+  renderRegularSection(Object.keys(map).sort(), map);
+  renderAverages();
+  if (had) {
+    flashSaved("Removed");
+    await refreshStats();
+  }
+}
 
 function renderLogTable(cfg, list, dates, map) {
   const wrap = document.getElementById(cfg.wrapId);
@@ -297,11 +395,13 @@ function renderTable() {
       document.getElementById(cfg.bodyId).innerHTML = "";
       document.getElementById(cfg.wrapId).classList.add("hidden");
     });
+    document.getElementById("regularSection").classList.add("hidden");
     return;
   }
   emptyHint.classList.add("hidden");
 
   LOG_TABLES.forEach((cfg) => renderLogTable(cfg, drills.filter(cfg.pick), dates, map));
+  renderRegularSection(dates, map);
   renderAverages();
 }
 
@@ -340,6 +440,28 @@ function renderAverages() {
 
     tfoot.innerHTML = `<tr class="avg-row"><td class="date-cell">Average</td>${cells}${cfg.withDelete ? "<td></td>" : ""}</tr>`;
   });
+  renderRegularAverages(map, dates);
+}
+
+function renderRegularAverages(map, dates) {
+  const box = document.getElementById("regularAverages");
+  const rows = [];
+  for (const d of regularDrillList()) {
+    let sum = 0;
+    let n = 0;
+    for (const date of dates) {
+      const raw = map[date] ? map[date][d.id] : undefined;
+      const num = parseFloat(raw);
+      if (raw !== undefined && raw !== "" && !Number.isNaN(num)) {
+        sum += num;
+        n += 1;
+      }
+    }
+    if (n > 0) {
+      rows.push(`<div class="regular-avg-row"><span>${escapeHtml(d.name)}</span><span><strong>${formatAvg(sum / n)}</strong> <em>avg of ${n}</em></span></div>`);
+    }
+  }
+  box.innerHTML = rows.length ? `<div class="regular-avg-title">Averages</div>${rows.join("")}` : "";
 }
 
 function formatAvg(n) {
@@ -374,6 +496,10 @@ async function onCellChange(e) {
     entries.push({ player_id: playerId, drill_id: drillId, entry_date: date, value });
   }
   manualDates.delete(date);
+  const changedDrill = drills.find((x) => x.id === drillId);
+  if (value === "" && changedDrill && changedDrill.is_default === false) {
+    (pendingRegular[date] = pendingRegular[date] || new Set()).add(drillId);
+  }
   renderAverages();
   flashSaved();
   await refreshStats({ celebrate: value !== "" });
