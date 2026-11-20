@@ -243,7 +243,7 @@ modal.addEventListener("click", (e) => {
 document.getElementById("savePlayerBtn").addEventListener("click", async () => {
   const name = document.getElementById("playerNameInput").value.trim();
   if (!name) {
-    alert("Please enter a name.");
+    noticeDialog("Please enter a name.");
     return;
   }
   const category = document.getElementById("playerCategoryInput").value.trim();
@@ -311,7 +311,7 @@ function renderClassManager() {
     btn.addEventListener("click", async () => {
       const id = Number(btn.dataset.classDelete);
       const c = allClasses.find((x) => x.id === id);
-      if (!confirm(`Delete the class '${c ? c.name : ""}'? Players in it will become unassigned.`)) return;
+      if (!(await confirmDialog(`Delete the class '${c ? c.name : ""}'? Players in it will become unassigned.`, { confirmLabel: "Delete", danger: true }))) return;
       await fetch(`/api/classes/${id}`, { method: "DELETE" });
       allClasses = allClasses.filter((x) => x.id !== id);
       renderClassManager();

@@ -131,7 +131,7 @@ function attachRowListeners() {
     btn.addEventListener("click", async () => {
       const id = Number(btn.dataset.drillDelete);
       const d = drills.find((x) => x.id === id);
-      if (!confirm(`Delete the drill '${d ? d.name : ""}'? Its records will be deleted too.`)) return;
+      if (!(await confirmDialog(`Delete the drill '${d ? d.name : ""}'? Its records will be deleted too.`, { confirmLabel: "Delete", danger: true }))) return;
       await fetch(`/api/drills/${id}`, { method: "DELETE" });
       drills = drills.filter((x) => x.id !== id);
       render();

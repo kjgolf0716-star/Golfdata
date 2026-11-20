@@ -100,7 +100,7 @@ function attachRowListeners() {
     btn.addEventListener("click", async () => {
       const id = Number(btn.dataset.questDelete);
       const q = allQuests.find((x) => x.id === id);
-      if (!confirm(`Delete the quest '${q ? q.name : ""}'? Every player's progress on it will be deleted too.`)) return;
+      if (!(await confirmDialog(`Delete the quest '${q ? q.name : ""}'? Every player's progress on it will be deleted too.`, { confirmLabel: "Delete", danger: true }))) return;
       await fetch(`/api/quests/${id}`, { method: "DELETE" });
       allQuests = allQuests.filter((x) => x.id !== id);
       renderQuestList();

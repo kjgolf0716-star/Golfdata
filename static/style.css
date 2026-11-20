@@ -1649,3 +1649,12 @@ table.log-table thead th .drill-desc.expanded {
 @media (max-width: 640px) {
   .drill-manager-row .drill-row-actions { align-self: flex-end; }
 }
+
+/* In-app confirm/notice dialogs (see appDialog in coach_nav.js) */
+.app-dialog-backdrop { z-index: 200; }
+.app-dialog-msg {
+  margin: 4px 0 8px;
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-line;
+}

@@ -1,3 +1,63 @@
+// In-app dialogs. The browser's own confirm()/alert() are silently suppressed
+// in some phone browsers and installed web apps, which made Delete buttons
+// look dead. These render inside the page, so they always show.
+function appDialog({ message, confirmLabel, cancelLabel, danger }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-backdrop app-dialog-backdrop";
+    const box = document.createElement("div");
+    box.className = "modal";
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-modal", "true");
+    const msg = document.createElement("p");
+    msg.className = "app-dialog-msg";
+    msg.textContent = message;
+    const actions = document.createElement("div");
+    actions.className = "modal-actions";
+
+    const finish = (result) => {
+      document.removeEventListener("keydown", onKey);
+      overlay.remove();
+      resolve(result);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") finish(false);
+    };
+
+    if (cancelLabel) {
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "btn-secondary";
+      cancel.textContent = cancelLabel;
+      cancel.addEventListener("click", () => finish(false));
+      actions.appendChild(cancel);
+    }
+    const ok = document.createElement("button");
+    ok.type = "button";
+    ok.className = danger ? "btn-danger" : "btn-primary";
+    ok.textContent = confirmLabel;
+    ok.addEventListener("click", () => finish(true));
+    actions.appendChild(ok);
+
+    box.append(msg, actions);
+    overlay.appendChild(box);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) finish(false);
+    });
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(overlay);
+    ok.focus();
+  });
+}
+
+function confirmDialog(message, { confirmLabel = "Confirm", danger = false } = {}) {
+  return appDialog({ message, confirmLabel, cancelLabel: "Cancel", danger });
+}
+
+function noticeDialog(message) {
+  return appDialog({ message, confirmLabel: "OK", cancelLabel: null, danger: false });
+}
+
 const logoutBtn = document.getElementById("coachLogoutBtn");
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async (e) => {

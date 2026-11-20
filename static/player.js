@@ -199,7 +199,7 @@ document.getElementById("accessCodeChip").addEventListener("click", async () => 
 });
 
 document.getElementById("regenerateCodeBtn").addEventListener("click", async () => {
-  if (!confirm("Generate a new code for this player? Their old code will stop working.")) return;
+  if (!(await confirmDialog("Generate a new code for this player? Their old code will stop working.", { confirmLabel: "Generate", danger: true }))) return;
   const res = await fetch(`/api/players/${playerId}/regenerate-code`, { method: "POST" });
   const data = await res.json();
   player.access_code = data.access_code;
@@ -376,7 +376,7 @@ async function onCellChange(e) {
 
 async function onDeleteDate(e) {
   const date = e.target.dataset.deleteDate;
-  if (!confirm(`Delete the record for ${date}?`)) return;
+  if (!(await confirmDialog(`Delete the record for ${date}?`, { confirmLabel: "Delete", danger: true }))) return;
   await fetch(`/api/players/${playerId}/dates/${date}`, { method: "DELETE" });
   entries = entries.filter((x) => x.entry_date !== date);
   manualDates.delete(date);
@@ -421,7 +421,7 @@ document.getElementById("confirmDateBtn").addEventListener("click", () => {
 const editModal = document.getElementById("editPlayerModal");
 document.getElementById("editPlayerBtn").addEventListener("click", () => {
   if (!player) {
-    alert("Still loading player data - try again in a moment.");
+    noticeDialog("Still loading player data - try again in a moment.");
     return;
   }
   document.getElementById("editNameInput").value = player.name;
@@ -436,7 +436,7 @@ editModal.addEventListener("click", (e) => { if (e.target === editModal) editMod
 
 document.getElementById("saveEditPlayerBtn").addEventListener("click", async () => {
   const name = document.getElementById("editNameInput").value.trim();
-  if (!name) { alert("Please enter a name."); return; }
+  if (!name) { noticeDialog("Please enter a name."); return; }
   const category = document.getElementById("editCategoryInput").value.trim();
   const notes = document.getElementById("editNotesInput").value.trim();
   const levelValue = document.getElementById("editLevelSelect").value;
@@ -456,7 +456,7 @@ document.getElementById("saveEditPlayerBtn").addEventListener("click", async () 
 });
 
 document.getElementById("deletePlayerBtn").addEventListener("click", async () => {
-  if (!confirm(`Delete player ${player.name}? All of their records will be deleted too.`)) return;
+  if (!(await confirmDialog(`Delete player ${player.name}? All of their records will be deleted too.`, { confirmLabel: "Delete", danger: true }))) return;
   await fetch(`/api/players/${playerId}`, { method: "DELETE" });
   window.location.href = "/";
 });

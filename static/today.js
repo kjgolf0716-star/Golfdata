@@ -164,9 +164,9 @@ document.getElementById("todayClassSelect").addEventListener("change", loadSessi
 document.getElementById("todayDateInput").addEventListener("change", loadSessionAttendance);
 document.getElementById("todayTimeInput").addEventListener("change", loadSessionAttendance);
 
-document.getElementById("todayClearBtn").addEventListener("click", () => {
+document.getElementById("todayClearBtn").addEventListener("click", async () => {
   if (selectedIds.size === 0) return;
-  if (!confirm("Clear the current selection? (Click Save Attendance after to make it permanent.)")) return;
+  if (!(await confirmDialog("Clear the current selection? (Click Save Attendance after to make it permanent.)", { confirmLabel: "Clear" }))) return;
   selectedIds = new Set();
   render();
 });
@@ -200,11 +200,11 @@ document.getElementById("todaySaveBtn").addEventListener("click", async () => {
   const time = document.getElementById("todayTimeInput").value;
 
   if (!date) {
-    alert("Please choose a date.");
+    noticeDialog("Please choose a date.");
     return;
   }
   if (selectedIds.size === 0) {
-    alert("Select at least one junior first.");
+    noticeDialog("Select at least one junior first.");
     return;
   }
 
