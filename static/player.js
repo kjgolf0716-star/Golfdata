@@ -275,8 +275,12 @@ function renderRegularSection(dates, map) {
       return `<div class="regular-day">
         <div class="regular-day-top">
           <div class="regular-day-head">${formatDate(date)}</div>
-          <button type="button" class="btn-icon btn-danger" data-delete-date="${date}"
-            title="Delete this date, including its regular drills">Delete date</button>
+          ${
+            items
+              ? `<button type="button" class="btn-icon btn-danger" data-clear-regular="${date}"
+            title="Remove this day's regular drills. Default drills are not affected.">Remove all</button>`
+              : ""
+          }
         </div>
         ${items ? `<div class="regular-items">${items}</div>` : ""}
         ${picker}
@@ -301,9 +305,43 @@ function renderRegularSection(dates, map) {
   list.querySelectorAll("[data-remove-regular]").forEach((btn) => {
     btn.addEventListener("click", onRemoveRegular);
   });
-  list.querySelectorAll("[data-delete-date]").forEach((btn) => {
-    btn.addEventListener("click", onDeleteDate);
+  list.querySelectorAll("[data-clear-regular]").forEach((btn) => {
+    btn.addEventListener("click", onClearRegularDay);
   });
+}
+
+// Removes only this date's regular drill results. The date row and the default
+// drill results above are left alone (use the Delete button in the default
+// table to remove the whole day).
+async function onClearRegularDay(e) {
+  const date = e.currentTarget.dataset.clearRegular;
+  const regularIds = new Set(regularDrillList().map((d) => d.id));
+  const recorded = entries.filter((x) => x.entry_date === date && regularIds.has(x.drill_id));
+  if (recorded.length > 0) {
+    const ok = await confirmDialog(
+      `Remove all regular drills from ${date}? Their results will be deleted. Default drills are not affected.`,
+      { confirmLabel: "Remove", danger: true }
+    );
+    if (!ok) return;
+    await Promise.all(
+      recorded.map((x) =>
+        fetch("/api/entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ player_id: playerId, drill_id: x.drill_id, entry_date: date, value: "" }),
+        })
+      )
+    );
+    entries = entries.filter((x) => !(x.entry_date === date && regularIds.has(x.drill_id)));
+  }
+  delete pendingRegular[date];
+  const map = entryMap();
+  renderRegularSection(Object.keys(map).sort(), map);
+  renderAverages();
+  if (recorded.length > 0) {
+    flashSaved("Removed");
+    await refreshStats();
+  }
 }
 
 async function onRemoveRegular(e) {
@@ -514,7 +552,7 @@ async function onCellChange(e) {
 
 async function onDeleteDate(e) {
   const date = e.target.dataset.deleteDate;
-  if (!(await confirmDialog(`Delete ${date}? All of that day's results, default and regular drills, will be deleted.`, { confirmLabel: "Delete", danger: true }))) return;
+  if (!(await confirmDialog(`Delete the whole day ${date}? Its default and regular drill results will all be deleted.`, { confirmLabel: "Delete", danger: true }))) return;
   await fetch(`/api/players/${playerId}/dates/${date}`, { method: "DELETE" });
   entries = entries.filter((x) => x.entry_date !== date);
   manualDates.delete(date);
