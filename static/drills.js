@@ -20,15 +20,43 @@ function render() {
   `;
 
   attachRowListeners();
+  setupAutosize();
   document.getElementById("addDrillBtn").addEventListener("click", onAdd);
+}
+
+// Grow each box to fit its text so long names/descriptions are fully readable
+// without scrolling inside a tiny field (matters most on phones).
+function autosize(el) {
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+
+function setupAutosize() {
+  document.querySelectorAll(".drill-name-input, .drill-desc-input").forEach((el) => {
+    el.addEventListener("input", () => autosize(el));
+    autosize(el);
+  });
+  // The name is one line: Enter saves it instead of adding a line break.
+  document.querySelectorAll(".drill-name-input").forEach((el) => {
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        el.blur();
+      }
+    });
+  });
+  // Fonts/layout settle after first paint; re-measure once.
+  requestAnimationFrame(() => {
+    document.querySelectorAll(".drill-name-input, .drill-desc-input").forEach(autosize);
+  });
 }
 
 function drillRowHtml(d) {
   return `
-    <div class="quest-manager-row" data-id="${d.id}">
+    <div class="quest-manager-row drill-manager-row" data-id="${d.id}">
       <div class="fields">
-        <input type="text" class="drill-name-input" value="${escapeHtml(d.name)}" placeholder="Drill name" />
-        <textarea class="drill-desc-input" placeholder="Description (measurement method, scoring rules, etc.)">${escapeHtml(d.description || "")}</textarea>
+        <textarea class="drill-name-input" rows="1" placeholder="Drill name">${escapeHtml(d.name)}</textarea>
+        <textarea class="drill-desc-input" rows="2" placeholder="Description (measurement method, scoring rules, etc.)">${escapeHtml(d.description || "")}</textarea>
       </div>
       <button class="btn-icon btn-danger" data-drill-delete="${d.id}">Delete</button>
     </div>`;

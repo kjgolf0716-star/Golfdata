@@ -185,9 +185,14 @@ def my_login_page():
     return FileResponse(BASE_DIR / "templates/my.html")
 
 
+# Attendance and Today's Class are switched off for now: the pages, scripts and
+# API endpoints (and all stored attendance data) are untouched, only the menu
+# links are gone and these two URLs bounce back to the player list. To bring
+# them back, restore the two nav links in templates/*.html and swap these
+# redirects for the FileResponse lines noted below.
 @app.get("/attendance")
 def attendance_page(request: Request):
-    return _require_coach_page(request) or FileResponse(BASE_DIR / "templates/attendance.html")
+    return RedirectResponse("/")  # was: _require_coach_page(request) or FileResponse(BASE_DIR / "templates/attendance.html")
 
 
 @app.get("/quests")
@@ -202,7 +207,7 @@ def drills_page(request: Request):
 
 @app.get("/today")
 def today_page(request: Request):
-    return _require_coach_page(request) or FileResponse(BASE_DIR / "templates/today.html")
+    return RedirectResponse("/")  # was: _require_coach_page(request) or FileResponse(BASE_DIR / "templates/today.html")
 
 
 @app.get("/sw.js")

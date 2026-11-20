@@ -219,6 +219,10 @@ function renderTable() {
       )
       .join("") +
     `<th class="actions-col"></th>`;
+  // Long descriptions are clamped to a few lines; tap one to read it in full.
+  headRow.querySelectorAll(".drill-desc").forEach((el) => {
+    if (el.textContent.trim()) el.addEventListener("click", () => el.classList.toggle("expanded"));
+  });
 
   const map = entryMap();
   const dates = Object.keys(map).sort();
