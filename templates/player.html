@@ -33,6 +33,7 @@
     <div class="header-actions">
       <a class="btn btn-secondary" id="publicProfileLink" href="#" target="_blank" rel="noopener">🎮 View Junior Profile</a>
       <button class="btn-secondary" id="editPlayerBtn">Edit Player</button>
+      <button class="btn-secondary" id="addDrillBtn">+ Add Drill</button>
       <button class="btn-primary" id="addDateBtn">+ Add Date</button>
     </div>
   </div>
@@ -68,6 +69,21 @@
     <div class="modal-actions">
       <button class="btn-secondary" id="cancelDateBtn">Cancel</button>
       <button class="btn-primary" id="confirmDateBtn">Add</button>
+    </div>
+  </div>
+</div>
+
+<div id="drillModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>Add Drill</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin-top:-6px;">New drills are added for every player in this club. You can edit or remove them later from the Drills tab.</p>
+    <label>Drill name</label>
+    <input id="newDrillNameInput" type="text" placeholder="e.g. 3m putts (out of 10)" />
+    <label>Description (optional)</label>
+    <textarea id="newDrillDescInput" placeholder="Measurement method, scoring rules, etc."></textarea>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="cancelDrillBtn">Cancel</button>
+      <button class="btn-primary" id="confirmDrillBtn">Add</button>
     </div>
   </div>
 </div>

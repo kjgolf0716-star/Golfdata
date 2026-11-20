@@ -378,6 +378,41 @@ document.getElementById("confirmDateBtn").addEventListener("click", () => {
   renderTable();
 });
 
+// ---------- Add drill ----------
+const drillModal = document.getElementById("drillModal");
+document.getElementById("addDrillBtn").addEventListener("click", () => {
+  document.getElementById("newDrillNameInput").value = "";
+  document.getElementById("newDrillDescInput").value = "";
+  drillModal.classList.remove("hidden");
+  document.getElementById("newDrillNameInput").focus();
+});
+document.getElementById("cancelDrillBtn").addEventListener("click", () => drillModal.classList.add("hidden"));
+drillModal.addEventListener("click", (e) => { if (e.target === drillModal) drillModal.classList.add("hidden"); });
+
+document.getElementById("confirmDrillBtn").addEventListener("click", async () => {
+  const name = document.getElementById("newDrillNameInput").value.trim();
+  if (!name) { alert("Please enter a drill name."); return; }
+  const description = document.getElementById("newDrillDescInput").value.trim();
+  const btn = document.getElementById("confirmDrillBtn");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/drills", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, description }),
+    });
+    if (!res.ok) { alert("Could not add the drill. Please try again."); return; }
+    const data = await res.json();
+    drills.push({ id: data.id, name, description, sort_order: drills.length });
+    drillModal.classList.add("hidden");
+    renderTable();
+    flashSaved("Drill added");
+    await refreshStats();
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 // ---------- Edit player ----------
 const editModal = document.getElementById("editPlayerModal");
 document.getElementById("editPlayerBtn").addEventListener("click", () => {
