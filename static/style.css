@@ -1669,7 +1669,8 @@ table.log-table thead th .drill-desc.expanded {
   margin-bottom: 10px;
   box-shadow: var(--shadow);
 }
-.regular-day-head { font-weight: 700; font-size: 14px; color: var(--green-900); margin-bottom: 8px; }
+.regular-day-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.regular-day-head { font-weight: 700; font-size: 14px; color: var(--green-900); }
 .regular-items { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .regular-item { display: flex; align-items: center; gap: 10px; }
 .regular-item-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.3; }

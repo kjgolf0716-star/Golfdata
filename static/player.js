@@ -273,7 +273,11 @@ function renderRegularSection(dates, map) {
           </select>`
         : "";
       return `<div class="regular-day">
-        <div class="regular-day-head">${formatDate(date)}</div>
+        <div class="regular-day-top">
+          <div class="regular-day-head">${formatDate(date)}</div>
+          <button type="button" class="btn-icon btn-danger" data-delete-date="${date}"
+            title="Delete this date, including its regular drills">Delete date</button>
+        </div>
         ${items ? `<div class="regular-items">${items}</div>` : ""}
         ${picker}
       </div>`;
@@ -296,6 +300,9 @@ function renderRegularSection(dates, map) {
   });
   list.querySelectorAll("[data-remove-regular]").forEach((btn) => {
     btn.addEventListener("click", onRemoveRegular);
+  });
+  list.querySelectorAll("[data-delete-date]").forEach((btn) => {
+    btn.addEventListener("click", onDeleteDate);
   });
 }
 
@@ -507,7 +514,7 @@ async function onCellChange(e) {
 
 async function onDeleteDate(e) {
   const date = e.target.dataset.deleteDate;
-  if (!(await confirmDialog(`Delete the record for ${date}?`, { confirmLabel: "Delete", danger: true }))) return;
+  if (!(await confirmDialog(`Delete ${date}? All of that day's results, default and regular drills, will be deleted.`, { confirmLabel: "Delete", danger: true }))) return;
   await fetch(`/api/players/${playerId}/dates/${date}`, { method: "DELETE" });
   entries = entries.filter((x) => x.entry_date !== date);
   manualDates.delete(date);
