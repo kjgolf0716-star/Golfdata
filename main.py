@@ -527,6 +527,29 @@ def list_notes(player_id: int, _=Depends(require_coach)):
         )
 
 
+@app.get("/api/players/{player_id}/notes/shared")
+def list_shared_notes(player_id: int, request: Request, code: str = ""):
+    """Notes as shown on the junior's own page. Readable by a logged-in coach,
+    or by whoever presents this player's own login code (the same code the
+    junior uses at /my), so changing the id in the URL doesn't expose anyone
+    else's notes."""
+    with get_conn() as conn:
+        player = conn.query_one("SELECT id, access_code FROM players WHERE id=?", (player_id,))
+        if not player:
+            raise HTTPException(404, "Player not found")
+        is_coach = bool(request.session.get("coach"))
+        stored = (player["access_code"] or "").lower()
+        given = code.strip().lower()
+        code_ok = bool(stored) and bool(given) and secrets.compare_digest(stored, given)
+        if not (is_coach or code_ok):
+            raise HTTPException(403, "Not allowed")
+        return conn.query(
+            "SELECT id, note_date, content FROM player_notes WHERE player_id=? "
+            "ORDER BY note_date DESC, id DESC",
+            (player_id,),
+        )
+
+
 @app.post("/api/players/{player_id}/notes")
 def create_note(player_id: int, note: NoteIn, _=Depends(require_coach)):
     note_date, content = _clean_note(note)

@@ -74,6 +74,16 @@ async function init() {
   const entries = await eRes.json();
   const todayDrillIds = new Set(await ddRes.json());
 
+  // Coach notes are only handed out against this junior's own login code.
+  let sharedNotes = [];
+  try {
+    const savedCode = localStorage.getItem("golf_access_code") || "";
+    const nRes = await fetch(`/api/players/${playerId}/notes/shared?code=${encodeURIComponent(savedCode)}`);
+    if (nRes.ok) sharedNotes = await nRes.json();
+  } catch (err) {
+    sharedNotes = [];
+  }
+
   const progressByQuest = {};
   for (const row of progressRows) progressByQuest[row.quest_id] = row.current;
 
@@ -97,7 +107,10 @@ async function init() {
       ${player.club_name ? `<div class="public-training-date" style="text-align:center;">${escapeHtml(player.club_name)}</div>` : ""}
       ${todayDrills.length > 0 ? publicTodayDrillsHtml(todayDrills) : ""}
       ${training ? publicTrainingHtml(training) : `<div class="public-loading">No training logged yet.</div>`}
+      ${publicNotesHtml(sharedNotes)}
+      ${publicResultsHtml(entries, allDrills)}
     `;
+    wirePublicMore();
     return;
   }
 
@@ -131,6 +144,10 @@ async function init() {
 
     ${training ? publicTrainingHtml(training) : ""}
 
+    ${publicNotesHtml(sharedNotes)}
+
+    ${publicResultsHtml(entries, allDrills)}
+
     <div class="public-section">
       <div class="public-section-title">\u{1F3AF} My Quests</div>
       ${publicQuestListHtml(levelQuests)}
@@ -142,6 +159,7 @@ async function init() {
     </div>
   `;
 
+  wirePublicMore();
   wireAvatarPicker();
   if (isFirstTimeAvatar) openAvatarPicker();
 }
@@ -331,6 +349,79 @@ function formatDate(iso) {
   const [y, m, d] = iso.split("-");
   const date = new Date(Number(y), Number(m) - 1, Number(d));
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+const PUBLIC_VISIBLE_ITEMS = 5;
+
+// Show the latest few items; the rest sit behind a "Show all" button.
+function publicMoreList(itemsHtml, label) {
+  if (itemsHtml.length <= PUBLIC_VISIBLE_ITEMS) return itemsHtml.join("");
+  const shown = itemsHtml.slice(0, PUBLIC_VISIBLE_ITEMS).join("");
+  const rest = itemsHtml.slice(PUBLIC_VISIBLE_ITEMS).join("");
+  return `${shown}<div class="public-more hidden">${rest}</div>
+    <button type="button" class="public-show-more" data-show-more>Show all ${itemsHtml.length} ${label}</button>`;
+}
+
+function wirePublicMore() {
+  document.querySelectorAll("[data-show-more]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const more = btn.previousElementSibling;
+      if (more) more.classList.remove("hidden");
+      btn.remove();
+    });
+  });
+}
+
+function publicNotesHtml(notes) {
+  if (!notes || notes.length === 0) return "";
+  const items = notes.map(
+    (n) => `<div class="public-note">
+      <div class="public-note-date">${escapeHtml(formatDate(n.note_date))}</div>
+      <div class="public-note-text">${escapeHtml(n.content)}</div>
+    </div>`
+  );
+  return `<div class="public-section">
+    <div class="public-section-title">\u{1F4DD} Notes from my coach</div>
+    ${publicMoreList(items, "notes")}
+  </div>`;
+}
+
+// Every logged result, newest day first: default drills, then regular drills.
+function publicResultsHtml(entries, drills) {
+  const byDate = {};
+  for (const e of entries) {
+    if (e.value === "" || e.value === null || e.value === undefined) continue;
+    (byDate[e.entry_date] = byDate[e.entry_date] || {})[e.drill_id] = e.value;
+  }
+  const order = [
+    ...drills.filter((d) => d.is_default !== false),
+    ...drills.filter((d) => d.is_default === false),
+  ];
+  const days = Object.keys(byDate)
+    .sort()
+    .reverse()
+    .map((date) => {
+      const rows = order
+        .filter((d) => byDate[date][d.id] !== undefined)
+        .map(
+          (d) => `<div class="public-result-row">
+            <span class="public-result-name">${escapeHtml(d.name)}</span>
+            <strong>${escapeHtml(String(byDate[date][d.id]))}</strong>
+          </div>`
+        );
+      return rows.length
+        ? `<div class="public-day">
+            <div class="public-day-date">${escapeHtml(formatDate(date))}</div>
+            ${rows.join("")}
+          </div>`
+        : "";
+    })
+    .filter(Boolean);
+  if (days.length === 0) return "";
+  return `<div class="public-section">
+    <div class="public-section-title">\u{1F3AF} My drill results</div>
+    ${publicMoreList(days, "days")}
+  </div>`;
 }
 
 function publicTodayDrillsHtml(drills) {

@@ -1759,3 +1759,47 @@ table.log-table thead th .drill-desc.expanded {
 .note-card-actions { display: flex; gap: 6px; }
 .note-card-text { font-size: 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; color: #2a332f; }
 .notes-empty { margin-top: 10px; color: var(--muted); font-size: 14px; }
+
+/* Junior page: coach notes and drill results by day */
+.public-note, .public-day {
+  background: var(--green-50);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  text-align: left;
+}
+.public-note-date, .public-day-date {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--green-700);
+  margin-bottom: 4px;
+}
+.public-note-text {
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+.public-result-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 14px;
+  border-top: 1px dashed var(--border);
+}
+.public-day-date + .public-result-row { border-top: none; }
+.public-result-name { min-width: 0; overflow-wrap: anywhere; }
+.public-show-more {
+  display: block;
+  margin: 4px auto 0;
+  background: none;
+  border: none;
+  color: var(--green-700);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
