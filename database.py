@@ -278,6 +278,21 @@ def init_db():
         """
     )
 
+    # Coach notes about a player, one row per note, dated by the session they
+    # describe. Private to coaches: never exposed on the junior pages.
+    conn.exec(
+        """
+        CREATE TABLE IF NOT EXISTS player_notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+            note_date TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+        """
+    )
+    conn.exec("CREATE INDEX IF NOT EXISTS idx_player_notes_player ON player_notes(player_id, note_date)")
+
     # Multi-club support: every pre-existing row belongs to club 1 (D3 Golf
     # Center) via the column default, so nothing already stored changes.
     conn.exec(

@@ -42,6 +42,23 @@
     <span id="accessCodeCopied" class="access-code-copied hidden">Copied!</span>
   </div>
 
+  <section class="notes-section" id="notesSection">
+    <div class="notes-head">
+      <h2 class="notes-title">Notes</h2>
+      <button type="button" class="btn-secondary" id="addNoteBtn">+ Add note</button>
+    </div>
+    <div id="noteForm" class="note-form hidden">
+      <input type="date" id="noteDateInput" class="note-date-input" />
+      <textarea id="noteTextInput" class="note-text-input" rows="3" maxlength="5000"
+        placeholder="What happened in this session? Observations, focus areas, homework..."></textarea>
+      <div class="note-form-actions">
+        <button type="button" class="btn-secondary" id="cancelNoteBtn">Cancel</button>
+        <button type="button" class="btn-primary" id="saveNoteBtn">Save note</button>
+      </div>
+    </div>
+    <div id="notesList"></div>
+  </section>
+
   <div id="gamifyPanel" class="gamify-panel"></div>
 
   <div id="defaultTableWrap" class="table-wrap">
@@ -105,6 +122,7 @@
 
 <script src="/static/gamify.js"></script>
 <script src="/static/player.js"></script>
+<script src="/static/player_notes.js"></script>
 <script src="/static/coach_nav.js"></script>
 <script src="/static/pwa-register.js"></script>
 </body>

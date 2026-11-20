@@ -2,6 +2,7 @@ import hashlib
 import os
 import secrets
 from contextlib import asynccontextmanager
+from datetime import date as _date
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -139,6 +140,11 @@ class QuestProgressIn(BaseModel):
     player_id: int
     quest_id: int
     current: int = 0
+
+
+class NoteIn(BaseModel):
+    note_date: str
+    content: str
 
 
 class AvatarIn(BaseModel):
@@ -487,7 +493,76 @@ def regenerate_access_code(player_id: int, _=Depends(require_coach)):
 @app.delete("/api/players/{player_id}")
 def delete_player(player_id: int, _=Depends(require_coach)):
     with get_conn() as conn:
+        # Explicit, so notes go even if the database doesn't enforce the cascade.
+        conn.exec("DELETE FROM player_notes WHERE player_id=?", (player_id,))
         conn.exec("DELETE FROM players WHERE id=?", (player_id,))
+    return {"ok": True}
+
+
+# ---------- Player notes API (coach only) ----------
+
+MAX_NOTE_LENGTH = 5000
+
+
+def _clean_note(note: NoteIn):
+    content = note.content.strip()
+    if not content:
+        raise HTTPException(400, "Note can't be empty")
+    if len(content) > MAX_NOTE_LENGTH:
+        raise HTTPException(400, f"Note is too long (max {MAX_NOTE_LENGTH} characters)")
+    try:
+        note_date = _date.fromisoformat(note.note_date.strip()).isoformat()
+    except ValueError:
+        raise HTTPException(400, "Invalid date")
+    return note_date, content
+
+
+@app.get("/api/players/{player_id}/notes")
+def list_notes(player_id: int, _=Depends(require_coach)):
+    with get_conn() as conn:
+        return conn.query(
+            "SELECT id, player_id, note_date, content, created_at FROM player_notes "
+            "WHERE player_id=? ORDER BY note_date DESC, id DESC",
+            (player_id,),
+        )
+
+
+@app.post("/api/players/{player_id}/notes")
+def create_note(player_id: int, note: NoteIn, _=Depends(require_coach)):
+    note_date, content = _clean_note(note)
+    with get_conn() as conn:
+        if not conn.query_one("SELECT id FROM players WHERE id=?", (player_id,)):
+            raise HTTPException(404, "Player not found")
+        cur = conn.exec(
+            "INSERT INTO player_notes (player_id, note_date, content) VALUES (?, ?, ?)",
+            (player_id, note_date, content),
+        )
+        new_id = cur.lastrowid
+        row = conn.query_one(
+            "SELECT id, player_id, note_date, content, created_at FROM player_notes WHERE id=?", (new_id,)
+        )
+    return row
+
+
+@app.put("/api/notes/{note_id}")
+def update_note(note_id: int, note: NoteIn, _=Depends(require_coach)):
+    note_date, content = _clean_note(note)
+    with get_conn() as conn:
+        if not conn.query_one("SELECT id FROM player_notes WHERE id=?", (note_id,)):
+            raise HTTPException(404, "Note not found")
+        conn.exec(
+            "UPDATE player_notes SET note_date=?, content=? WHERE id=?", (note_date, content, note_id)
+        )
+        row = conn.query_one(
+            "SELECT id, player_id, note_date, content, created_at FROM player_notes WHERE id=?", (note_id,)
+        )
+    return row
+
+
+@app.delete("/api/notes/{note_id}")
+def delete_note(note_id: int, _=Depends(require_coach)):
+    with get_conn() as conn:
+        conn.exec("DELETE FROM player_notes WHERE id=?", (note_id,))
     return {"ok": True}
 
 

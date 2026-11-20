@@ -1727,3 +1727,35 @@ table.log-table thead th .drill-desc.expanded {
 
 .regular-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 2px; }
 .regular-section-head .btn-secondary { padding: 7px 14px; font-size: 13px; }
+
+/* Dated coach notes */
+.notes-section {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.notes-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.notes-title { font-size: 16px; margin: 0; color: var(--green-900); }
+.notes-head .btn-secondary { padding: 7px 14px; font-size: 13px; }
+.note-form, .note-card.editing { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.note-date-input, .note-text-input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: inherit;
+  width: 100%;
+}
+.note-date-input { max-width: 200px; }
+.note-text-input { resize: vertical; line-height: 1.5; }
+.note-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.note-card { border-top: 1px solid var(--border); padding: 12px 0 2px; margin-top: 12px; }
+.note-card:first-child { margin-top: 10px; }
+.note-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.note-card-date { font-weight: 700; font-size: 14px; color: var(--green-900); }
+.note-card-actions { display: flex; gap: 6px; }
+.note-card-text { font-size: 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; color: #2a332f; }
+.notes-empty { margin-top: 10px; color: var(--muted); font-size: 14px; }
